@@ -1,41 +1,399 @@
 ---
-name: Release
-run-name: Release v${{ github.event.inputs.version }}
+name: Alpha release
+run-name: Unite Next v${{ inputs.version }} alpha
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version
+        description: Exact integer metadata version
+        type: string
+        required: true
+      reviewed_commit:
+        description: Full reviewed master commit SHA-1
+        type: string
+        required: true
+      accepted_run_id:
+        description: Successful master build run whose exact ZIP passed independent review and GNOME 50/51 acceptance
+        type: string
+        required: true
+      accepted_artifact_id:
+        description: unite-next-native-candidate artifact ID from that run
+        type: string
+        required: true
+      accepted_sha256:
+        description: SHA-256 of the exact accepted installation ZIP
+        type: string
         required: true
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: unite-next-alpha-release
+  cancel-in-progress: false
 
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    container:
+      image: registry.fedoraproject.org/fedora@sha256:278ccc1c8af3d618b64accbba691bb14f82d371b2e13c86fa2ac7a447d1e03bb # Fedora 44
+    outputs:
+      version: ${{ steps.origin.outputs.version }}
+      uuid: ${{ steps.origin.outputs.uuid }}
+      artifact_id: ${{ steps.transfer.outputs.artifact-id }}
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Install native build tools
+        run: dnf install --assumeyes --setopt=install_weak_deps=False git python3 gnome-shell gjs gettext glib2 dbus-daemon
 
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          node-version: 18
+          persist-credentials: false
 
-      - name: Enable corepack
-        run: corepack enable
+      - name: Bind dispatch, source and accepted build artifact
+        id: origin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          ACCEPTED_RUN_ID: ${{ inputs.accepted_run_id }}
+          ACCEPTED_ARTIFACT_ID: ${{ inputs.accepted_artifact_id }}
+          ACCEPTED_SHA256: ${{ inputs.accepted_sha256 }}
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+          import sys
+          import urllib.request
 
-      - name: Install dependencies
-        run: yarn install
+          sys.path.insert(0, "tools")
+          import build
 
-      - name: Run package
-        run: yarn package
+          repository = "lucastsudaka/unite-next"
+          commit = os.environ["REVIEWED_COMMIT"]
+          if (os.environ["GITHUB_REPOSITORY"] != repository or
+                  os.environ["GITHUB_REF"] != "refs/heads/master" or
+                  not re.fullmatch(r"[0-9a-f]{40}", commit) or commit != os.environ["GITHUB_SHA"] or
+                  subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip() != commit):
+              raise ValueError("Dispatch must select the exact reviewed master commit")
+          for name in ("ACCEPTED_RUN_ID", "ACCEPTED_ARTIFACT_ID"):
+              if not re.fullmatch(r"[1-9][0-9]*", os.environ[name]):
+                  raise ValueError(f"Invalid {name}")
+          if not re.fullmatch(r"[0-9a-f]{64}", os.environ["ACCEPTED_SHA256"]):
+              raise ValueError("Invalid accepted ZIP SHA-256")
+          metadata = build.identity(version=os.environ["REQUESTED_VERSION"])
+          if (metadata["uuid"] != "unite-next@lucastsudaka.github.io" or
+                  metadata["url"] != "https://github.com/" + repository):
+              raise ValueError("Unexpected repository or extension identity")
 
-      - uses: svenstaro/upload-release-action@v2
-        if: ${{ !env.ACT }}
+          def get(path):
+              request = urllib.request.Request("https://api.github.com/repos/" + repository + path,
+                  headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                           "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2026-03-10"})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+
+          repo = get("")
+          if (repo.get("private") is not True or repo.get("fork") is not False or
+                  repo.get("full_name") != repository or repo.get("default_branch") != "master"):
+              raise ValueError("Delivery must be the selected private independent repository on master")
+          run = get("/actions/runs/" + os.environ["ACCEPTED_RUN_ID"])
+          artifact = get("/actions/artifacts/" + os.environ["ACCEPTED_ARTIFACT_ID"])
+          if (run.get("status") != "completed" or run.get("conclusion") != "success" or
+                  run.get("event") != "push" or run.get("head_branch") != "master" or
+                  run.get("head_sha") != commit or
+                  run.get("path", "").split("@", 1)[0] != ".github/workflows/build.yml" or
+                  run.get("repository", {}).get("full_name") != repository or
+                  run.get("head_repository", {}).get("full_name") != repository or
+                  artifact.get("id") != int(os.environ["ACCEPTED_ARTIFACT_ID"]) or
+                  artifact.get("name") != "unite-next-native-candidate" or artifact.get("expired") is not False or
+                  artifact.get("workflow_run", {}).get("id") != int(os.environ["ACCEPTED_RUN_ID"]) or
+                  artifact.get("workflow_run", {}).get("head_sha") != commit):
+              raise ValueError("Accepted artifact does not originate in the successful reviewed master build")
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              output.write(f"version={metadata['version']}\nuuid={metadata['uuid']}\n")
+          PY
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          overwrite: true
-          file: build/unite-v${{ github.event.inputs.version }}.zip
-          tag: v${{ github.event.inputs.version }}
-          body: Version ${{ github.event.inputs.version }}
+          artifact-ids: ${{ inputs.accepted_artifact_id }}
+          run-id: ${{ inputs.accepted_run_id }}
+          repository: lucastsudaka/unite-next
+          github-token: ${{ github.token }}
+          path: accepted
+          digest-mismatch: error
+
+      - name: Exercise native source and failure scenarios
+        run: |
+          mkdir -p /tmp/.X11-unix
+          /usr/bin/python3 -m unittest discover -s tests -p 'test_*.py' -v
+          /usr/bin/python3 tools/test-runtime.py
+
+      - name: Build a reference payload without replacing the accepted ZIP
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: /usr/bin/python3 tools/build.py package --version "$REQUESTED_VERSION"
+
+      - name: Verify accepted bytes against their digest and complete source payload
+        env:
+          ACCEPTED_SHA256: ${{ inputs.accepted_sha256 }}
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import shutil
+          import sys
+          import zipfile
+
+          sys.path.insert(0, "tools")
+          import build
+
+          metadata = build.identity()
+          filename = f"unite-next-v{metadata['version']}.zip"
+          accepted = Path("accepted")
+          expected_names = {filename, filename + ".sha256", "candidate.json"}
+          if ({path.name for path in accepted.iterdir()} != expected_names or
+                  any(path.is_symlink() or not path.is_file() for path in accepted.iterdir())):
+              raise ValueError("Unexpected accepted artifact contents")
+          archive = accepted / filename
+          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+          expected = {"repository": os.environ["GITHUB_REPOSITORY"],
+                      "source_commit": os.environ["GITHUB_SHA"], "uuid": metadata["uuid"],
+                      "version": metadata["version"], "archive": filename, "sha256": digest}
+          if (digest != os.environ["ACCEPTED_SHA256"] or
+                  json.loads((accepted / "candidate.json").read_text(encoding="utf-8")) != expected or
+                  (accepted / (filename + ".sha256")).read_text(encoding="utf-8") != f"{digest}  {filename}\n"):
+              raise ValueError("Accepted artifact digest, source manifest or checksum differs")
+          with zipfile.ZipFile(Path("build") / filename) as reference:
+              payload = {item.filename: reference.read(item) for item in reference.infolist() if not item.is_dir()}
+              modes = {item.filename: item.external_attr >> 16 for item in reference.infolist() if not item.is_dir()}
+          build.validate_archive(archive, payload)
+          with zipfile.ZipFile(archive) as original:
+              if {item.filename: item.external_attr >> 16 for item in original.infolist()
+                      if not item.is_dir()} != modes:
+                  raise ValueError("Accepted ZIP file modes differ from the source payload")
+          transfer = Path("build/accepted-release")
+          transfer.mkdir()
+          for name in expected_names:
+              shutil.copyfile(accepted / name, transfer / name)
+          if (transfer / filename).read_bytes() != archive.read_bytes():
+              raise ValueError("Accepted ZIP changed during transfer preparation")
+          print(f"Unchanged accepted ZIP verified: {filename}; SHA-256: {digest}")
+          PY
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: transfer
+        with:
+          name: unite-next-accepted-release
+          path: build/accepted-release/*
+          if-no-files-found: error
+          overwrite: false
+          compression-level: 0
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      # No source checkout or execution of downloaded product code in this job.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.verify.outputs.artifact_id }}
+          path: accepted
+          digest-mismatch: error
+
+      - name: Validate and create a new private alpha release without replacing existing state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+          RELEASE_UUID: ${{ needs.verify.outputs.uuid }}
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          ACCEPTED_SHA256: ${{ inputs.accepted_sha256 }}
+          ACCEPTED_RUN_ID: ${{ inputs.accepted_run_id }}
+          ACCEPTED_ARTIFACT_ID: ${{ inputs.accepted_artifact_id }}
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path, PurePosixPath
+          import re
+          import stat
+          import sys
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          import zipfile
+
+          repository = "lucastsudaka/unite-next"
+          version, commit = os.environ["RELEASE_VERSION"], os.environ["REVIEWED_COMMIT"]
+          if (os.environ["GITHUB_REPOSITORY"] != repository or
+                  os.environ["GITHUB_REF"] != "refs/heads/master" or
+                  not re.fullmatch(r"[1-9][0-9]*", version) or
+                  not re.fullmatch(r"[0-9a-f]{40}", commit) or commit != os.environ["GITHUB_SHA"] or
+                  os.environ["RELEASE_UUID"] != "unite-next@lucastsudaka.github.io" or
+                  not re.fullmatch(r"[0-9a-f]{64}", os.environ["ACCEPTED_SHA256"])):
+              raise ValueError("Invalid reviewed release identity")
+          filename, tag = f"unite-next-v{version}.zip", f"unite-next-v{version}"
+          directory = Path("accepted")
+          names = {filename, filename + ".sha256", "candidate.json"}
+          if ({path.name for path in directory.iterdir()} != names or
+                  any(path.is_symlink() or not path.is_file() for path in directory.iterdir())):
+              raise ValueError("Unexpected release artifact contents")
+          archive = directory / filename
+          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+          manifest = {"repository": repository, "source_commit": commit,
+                      "uuid": os.environ["RELEASE_UUID"], "version": int(version),
+                      "archive": filename, "sha256": digest}
+          if (digest != os.environ["ACCEPTED_SHA256"] or
+                  json.loads((directory / "candidate.json").read_text(encoding="utf-8")) != manifest or
+                  (directory / (filename + ".sha256")).read_text(encoding="utf-8") != f"{digest}  {filename}\n"):
+              raise ValueError("Downloaded release digest or reviewed source manifest differs")
+          with zipfile.ZipFile(archive) as value:
+              entries = value.infolist()
+              if len(entries) != len({item.filename for item in entries}) or value.testzip() is not None:
+                  raise ValueError("Duplicate or corrupt installation ZIP entries")
+              for item in entries:
+                  path = PurePosixPath(item.filename)
+                  if (path.is_absolute() or ".." in path.parts or "\\" in item.filename or
+                          stat.S_ISLNK(item.external_attr >> 16) or item.flag_bits & 1 or
+                          path.parts[0] in ("specs", ".agents", ".git", "docs", "tests", "tools")):
+                      raise ValueError("Unsafe installation ZIP entry")
+              metadata = json.loads(value.read("metadata.json"))
+              if (type(metadata.get("version")) is not int or metadata["version"] != int(version) or
+                      metadata.get("uuid") != manifest["uuid"] or metadata.get("name") != "Unite Next" or
+                      metadata.get("settings-schema") != "org.gnome.shell.extensions.unite-next" or
+                      metadata.get("gettext-domain") != "unite-next" or
+                      metadata.get("url") != "https://github.com/" + repository or
+                      not value.read("LICENSE") or not value.read("NOTICE")):
+                  raise ValueError("Installation ZIP identity or required notices differ")
+
+          base = "https://api.github.com/repos/" + repository
+          completed = []
+
+          def request(method, path, payload=None, *, missing=False, content_type=None):
+              if method != "GET":
+                  check_private()
+              url = path if path.startswith("https://uploads.github.com/") else base + path
+              data = payload if content_type else (json.dumps(payload).encode() if payload is not None else None)
+              headers = {"Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                         "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2026-03-10"}
+              if data is not None:
+                  headers["Content-Type"] = content_type or "application/json"
+              query = urllib.request.Request(url, data=data, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(query, timeout=30) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as error:
+                  if method == "GET" and missing and error.code == 404:
+                      return None
+                  raise
+
+          def check_private():
+              repo = request("GET", "")
+              if (repo.get("private") is not True or repo.get("fork") is not False or
+                      repo.get("full_name") != repository or repo.get("default_branch") != "master"):
+                  raise ValueError("Release destination is not the selected private independent repository")
+
+          def matching_release():
+              page = 1
+              while True:
+                  releases = request("GET", f"/releases?per_page=100&page={page}")
+                  for release in releases:
+                      if release.get("tag_name") == tag:
+                          return release
+                  if len(releases) < 100:
+                      return None
+                  page += 1
+
+          def observed_state():
+              release = matching_release()
+              reference = request("GET", "/git/ref/tags/" + tag, missing=True)
+              return {"tag": reference, "release": None if release is None else {
+                  "id": release["id"], "url": release["html_url"], "draft": release["draft"],
+                  "prerelease": release["prerelease"],
+                  "assets": [{"name": item["name"], "digest": item.get("digest")}
+                             for item in release.get("assets", [])]}}
+
+          try:
+              check_private()
+              if request("GET", "/git/ref/heads/master")["object"]["sha"] != commit:
+                  raise ValueError("Master changed since dispatch; review the new source before release")
+              state = observed_state()
+              if state["tag"] is not None or state["release"] is not None:
+                  raise ValueError("Existing tag/release/assets must be preserved; inspect before resuming")
+              reference = request("POST", "/git/refs", {"ref": "refs/tags/" + tag, "sha": commit})
+              completed.append("tag created")
+              if reference["object"]["sha"] != commit or reference["ref"] != "refs/tags/" + tag:
+                  raise ValueError("New tag does not identify the reviewed source")
+              notes = (f"Alpha pre-release of Unite Next metadata version {version}.\n\n"
+                       f"Source: {commit}\nZIP SHA-256: {digest}\n"
+                       f"Unchanged accepted build: https://github.com/{repository}/actions/runs/"
+                       f"{os.environ['ACCEPTED_RUN_ID']}\n"
+                       f"Accepted artifact ID: {os.environ['ACCEPTED_ARTIFACT_ID']}\n"
+                       "Accepted native targets: GNOME Shell 50 and 51; isolated full and upstream-conflict journeys.\n")
+              release = request("POST", "/releases", {"tag_name": tag, "target_commitish": commit,
+                  "name": f"Unite Next {version} alpha", "body": notes,
+                  "draft": True, "prerelease": True, "make_latest": "false"})
+              if (release.get("draft") is not True or release.get("prerelease") is not True or
+                      release.get("tag_name") != tag):
+                  raise ValueError("New release is not the requested unpublished alpha draft")
+              completed.append("new draft verified")
+              release_id = release["id"]
+              expected_assets = {}
+              for name, content_type in ((filename, "application/zip"),
+                                         (filename + ".sha256", "text/plain")):
+                  data = (directory / name).read_bytes()
+                  asset = request("POST", f"https://uploads.github.com/repos/{repository}/releases/"
+                      f"{release_id}/assets?name={urllib.parse.quote(name, safe='')}", data,
+                      content_type=content_type)
+                  expected_assets[name] = "sha256:" + hashlib.sha256(data).hexdigest()
+                  if (asset.get("name") != name or asset.get("state") != "uploaded" or
+                          asset.get("size") != len(data) or asset.get("digest") != expected_assets[name]):
+                      raise ValueError("New release asset does not match accepted bytes")
+                  completed.append("uploaded " + name)
+              assets = request("GET", f"/releases/{release_id}/assets?per_page=100")
+              if ({item["name"]: item.get("digest") for item in assets} != expected_assets or
+                      len(assets) != len(expected_assets) or
+                      request("GET", "/git/ref/tags/" + tag)["object"]["sha"] != commit):
+                  raise ValueError("Release assets or tag changed before publication")
+              published = request("PATCH", f"/releases/{release_id}",
+                                  {"draft": False, "prerelease": True, "make_latest": "false"})
+              completed.append("publication response received")
+              if (published.get("draft") is not False or published.get("prerelease") is not True or
+                      published.get("tag_name") != tag or
+                      request("GET", "/git/ref/tags/" + tag)["object"]["sha"] != commit or
+                      {item["name"]: item.get("digest") for item in request("GET",
+                          f"/releases/{release_id}/assets?per_page=100")} != expected_assets):
+                  raise ValueError("Release was not published as a pre-release")
+              check_private()
+              completed.append("pre-release verified")
+              print(json.dumps({"ok": True, "url": published["html_url"], "source_commit": commit,
+                                "archive": filename, "sha256": digest}, sort_keys=True))
+              with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
+                  summary.write(f"Published private alpha: {published['html_url']}\n\n"
+                                f"Source: `{commit}`\n\nZIP SHA-256: `{digest}`\n")
+          except Exception as error:
+              try:
+                  state = observed_state()
+              except Exception as inspection_error:
+                  state = {"inspection_error": str(inspection_error)}
+              print(json.dumps({"ok": False, "error": str(error), "completed_steps": completed,
+                                "observed_state": state, "next_action":
+                                "Inspect existing remote state; no release/tag/asset was deleted or replaced."},
+                               sort_keys=True), file=sys.stderr)
+              raise
+          PY

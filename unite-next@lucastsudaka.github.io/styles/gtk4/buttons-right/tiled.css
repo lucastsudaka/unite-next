@@ -1,0 +1,17 @@
+.tiled headerbar windowhandle {
+  margin-right: -6px;
+}
+
+.tiled headerbar windowcontrols.end {
+  min-width: 200px;
+  margin: 0 -200px 0 0;
+  opacity: 0;
+}
+
+.tiled .titlebar.default-decoration {
+  min-height: 200px;
+  padding: 0;
+  border-width: 0;
+  margin: -200px 0 0;
+  opacity: 0;
+}

@@ -6,8 +6,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Unite Shell\n"
-"Report-Msgid-Bugs-To: https://github.com/hardpixel/unite-shell/issues\n"
-"POT-Creation-Date: 2021-09-16 03:07+0300\n"
+"Report-Msgid-Bugs-To: https://github.com/lucastsudaka/unite-next/issues\n"
+"POT-Creation-Date: 1970-01-01 00:00+0000\n"
 "PO-Revision-Date: 2022-08-17 09:0036+0200\n"
 "Last-Translator: Rafael Fontenelle <rafaelff@gnome.org>\n"
 "Language-Team: Brazilian Portuguese <gnome-pt_br-list@gnome.org>\n"
@@ -21,176 +21,363 @@ msgstr ""
 "X-Poedit-SearchPath-0: settings.ui\n"
 "X-Poedit-SearchPath-1: overrides/settings.ui\n"
 
-#: overrides/settings.ui:38 settings.ui:32
-msgid "Extend top bar left box"
-msgstr "Estender a caixa esquerda da barra superior"
-
-#: overrides/settings.ui:78 settings.ui:52
-msgid "Auto focus new windows"
-msgstr "Foco automático em novas janelas"
-
-#: overrides/settings.ui:118 settings.ui:72
-msgid "Show system tray in top bar"
-msgstr "Mostrar área de notificação na barra superior"
-
-#: overrides/settings.ui:158 settings.ui:92
-msgid "Show desktop name in top bar"
-msgstr "Mostrar o nome do ambiente na barra superior"
-
-#: overrides/settings.ui:198 settings.ui:112
-msgid "Enable titlebar actions on top bar click"
-msgstr "Habilitar ações da barra de título no clique da barra superior"
-
-#: overrides/settings.ui:238 settings.ui:132
-msgid "Restrict functionalities to the primary screen"
-msgstr "Restringir funcionalidades à tela principal"
-
-#: overrides/settings.ui:278 settings.ui:152
-msgid "Hide activities button"
-msgstr "Ocultar botão de atividades"
-
-#: overrides/settings.ui:294 overrides/settings.ui:339
-#: overrides/settings.ui:386 overrides/settings.ui:433 settings.ui:162
-#: settings.ui:187 settings.ui:214 settings.ui:241
-msgid "Never"
-msgstr "Nunca"
-
-#: overrides/settings.ui:295 overrides/settings.ui:949
-#: overrides/settings.ui:996 settings.ui:163 settings.ui:521 settings.ui:548
-msgid "Auto"
-msgstr "Auto"
-
-#: overrides/settings.ui:296 overrides/settings.ui:343
-#: overrides/settings.ui:390 overrides/settings.ui:437 settings.ui:164
-#: settings.ui:191 settings.ui:218 settings.ui:245
-msgid "Always"
-msgstr "Sempre"
-
-#: overrides/settings.ui:323 settings.ui:177
-msgid "Hide window titlebars"
-msgstr "Ocultar barras de título das janelas"
-
-#: overrides/settings.ui:340 overrides/settings.ui:387
-#: overrides/settings.ui:434 settings.ui:188 settings.ui:215 settings.ui:242
-msgid "Tiled"
-msgstr "Lado a lado"
-
-#: overrides/settings.ui:341 overrides/settings.ui:388
-#: overrides/settings.ui:435 settings.ui:189 settings.ui:216 settings.ui:243
-msgid "Maximized"
-msgstr "Maximizado"
-
-#: overrides/settings.ui:342 overrides/settings.ui:389
-#: overrides/settings.ui:436 settings.ui:190 settings.ui:217 settings.ui:244
-msgid "Both"
-msgstr "Ambos"
-
-#: overrides/settings.ui:370 settings.ui:204
-msgid "Show window title in app menu"
-msgstr "Mostrar título da janela no menu de aplicativo"
-
-#: overrides/settings.ui:417 settings.ui:231
-msgid "Show window buttons in top bar"
-msgstr "Mostrar botões da janela na barra superior"
-
-#: overrides/settings.ui:464 settings.ui:258
-msgid "Notification messages position"
-msgstr "Posição das mensagens de notificação"
-
-#: overrides/settings.ui:480 settings.ui:268
-msgid "Center"
-msgstr "Centro"
-
-#: overrides/settings.ui:481 overrides/settings.ui:950 settings.ui:269
-#: settings.ui:522
-msgid "Left"
-msgstr "Esquerda"
-
-#: overrides/settings.ui:482 overrides/settings.ui:951 settings.ui:270
-#: settings.ui:523
-msgid "Right"
-msgstr "Direita"
-
-#: overrides/settings.ui:506 settings.ui:282
+#: unite-next@lucastsudaka.github.io/settings.ui:11
 msgid "General"
 msgstr "Geral"
 
-#: overrides/settings.ui:531 settings.ui:307
-msgid "Apply system fonts to shell theme"
-msgstr "Aplicar fontes do sistema ao tema do shell"
+#: unite-next@lucastsudaka.github.io/settings.ui:15
+msgid "Layout Tweaks"
+msgstr ""
 
-#: overrides/settings.ui:571 settings.ui:327
+#: unite-next@lucastsudaka.github.io/settings.ui:18
+msgid "Extend panel left box"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:19
+msgid "Extend top panel left box"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:24
+msgid "Reduce panel spacing"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:25
+msgid "Reduce top panel icons and buttons spacing"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:30
+msgid "Notifications position"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:31
+msgid "System notification messages position"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:38
+msgid "System Tray"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:41
+msgid "Enable tray"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:42
+msgid "Show system tray in top panel"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:47
+msgid "Greyscale icons"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:48
 msgid "Convert tray icons to greyscale"
 msgstr "Converter ícones da área de notificação para escala de cinza"
 
-#: overrides/settings.ui:610 settings.ui:346
-msgid "Hide top bar dropdown arrows"
-msgstr "Ocultar as setas de menu suspenso da barra superior"
+#: unite-next@lucastsudaka.github.io/settings.ui:55
+msgid "Application Menu"
+msgstr ""
 
-#: overrides/settings.ui:650 settings.ui:367
-msgid "Hide aggregate menu dropdown arrow"
-msgstr "Ocultar seta de menu suspenso do menu de agregação"
+#: unite-next@lucastsudaka.github.io/settings.ui:58
+msgid "Enable appmenu"
+msgstr ""
 
-#: overrides/settings.ui:689 settings.ui:387
-msgid "Hide app menu dropdown arrow"
-msgstr "Ocultar seta de menu suspenso do menu de aplicativo"
+#: unite-next@lucastsudaka.github.io/settings.ui:59
+msgid "Show appmenu button in top panel"
+msgstr ""
 
-#: overrides/settings.ui:729 settings.ui:407
-msgid "Hide app menu application icon"
-msgstr "Ocultar ícone de aplicativo do menu de aplicativo"
+#: unite-next@lucastsudaka.github.io/settings.ui:64
+msgid "Maximum width"
+msgstr ""
 
-#: overrides/settings.ui:769 settings.ui:427
-msgid "Reduce top bar items spacing"
-msgstr "Reduzir espaçamento de itens da barra superior"
+#: unite-next@lucastsudaka.github.io/settings.ui:65
+msgid "Maximum width for the appmenu button label"
+msgstr ""
 
-#: overrides/settings.ui:809 settings.ui:447
-msgid "Top bar desktop name text"
-msgstr "Texto do nome do ambiente na barra superior"
+#: unite-next@lucastsudaka.github.io/settings.ui:71
+msgid "Text ellipsis"
+msgstr ""
 
-#: overrides/settings.ui:823 settings.ui:455
-msgid "GNOME Desktop"
-msgstr "GNOME Desktop"
+#: unite-next@lucastsudaka.github.io/settings.ui:72
+msgid "Text ellipsis mode for appmenu button label"
+msgstr ""
 
-#: overrides/settings.ui:848 settings.ui:466
-msgid "Max width for the app menu"
-msgstr "Largura máxima do menu de aplicativo"
+#: unite-next@lucastsudaka.github.io/settings.ui:77
+msgid "Disable icon"
+msgstr ""
 
-#: overrides/settings.ui:888 settings.ui:486
-msgid "Ellipsis mode for app menu"
-msgstr "Modo de reticências para o menu de aplicativo"
+#: unite-next@lucastsudaka.github.io/settings.ui:78
+msgid "Hide application icon in appmenu button"
+msgstr ""
 
-#: overrides/settings.ui:904 settings.ui:496
-msgid "Start"
-msgstr "Início"
+#: unite-next@lucastsudaka.github.io/settings.ui:85
+msgid "Workspace Switcher"
+msgstr ""
 
-#: overrides/settings.ui:905 settings.ui:497
-msgid "Middle"
-msgstr "Meio"
+#: unite-next@lucastsudaka.github.io/settings.ui:88
+msgid "Use text button"
+msgstr ""
 
-#: overrides/settings.ui:906 settings.ui:498
-msgid "End"
-msgstr "Fim"
+#: unite-next@lucastsudaka.github.io/settings.ui:89
+msgid "Revive old activities text button"
+msgstr ""
 
-#: overrides/settings.ui:933 settings.ui:511
-msgid "Top bar window buttons position"
-msgstr "Posição dos pontões de janela da barra superior"
+#: unite-next@lucastsudaka.github.io/settings.ui:94
+msgid "Hide switcher"
+msgstr ""
 
-#: overrides/settings.ui:952 settings.ui:524
+#: unite-next@lucastsudaka.github.io/settings.ui:95
+msgid "Hide workspace switcher button"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:102
+msgid "Desktop Name"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:105
+msgid "Enable desktop name"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:106
+msgid "Show desktop name label in top panel"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:111
+msgid "Desktop name label"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:119
+msgid "Windows"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:123
+msgid "Behavior"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:126
+msgid "Primary screen only"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:127
+msgid "Restrict functionalities to the primary screen"
+msgstr "Restringir funcionalidades à tela principal"
+
+#: unite-next@lucastsudaka.github.io/settings.ui:132
+msgid "Auto focus"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:133
+msgid "Auto focus new windows"
+msgstr "Foco automático em novas janelas"
+
+#: unite-next@lucastsudaka.github.io/settings.ui:138
+msgid "Panel click actions"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:139
+msgid "Enable titlebar actions on top panel click"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:146
+msgid "Titlebars"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:149
+msgid "Hide titlebars"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:150
+msgid "Hide window titlebars"
+msgstr "Ocultar barras de título das janelas"
+
+#: unite-next@lucastsudaka.github.io/settings.ui:155
+msgid "Show appmenu title"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:156
+msgid "Show window title in top panel appmenu"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:163
+msgid "Buttons"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:166
+msgid "Show buttons"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:167
+msgid "Show window buttons in top panel"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:172
+msgid "Panel position"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:173
+msgid "Window buttons position in top panel"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:178
+msgid "Icon theme"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:179
+msgid "Top panel window buttons theme"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:184
+msgid "Apply icon scale fix (experimental)"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:185
+msgid "Icons are properly rendered for multiple different display scales"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/buttons.js:274
+msgid "Close"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/buttons.js:275
+msgid "Minimize"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/buttons.js:276
+msgid "Restore"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/buttons.js:276
+msgid "Maximize"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:3
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:12
+msgid "Never"
+msgstr "Nunca"
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:3
+msgid "Tiled"
+msgstr "Lado a lado"
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:3
+msgid "Maximized"
+msgstr "Maximizado"
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:4
+msgid "Both"
+msgstr "Ambos"
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:4
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:12
+msgid "Always"
+msgstr "Sempre"
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:11
+msgid "Center"
+msgstr "Centro"
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:11
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:14
+msgid "Left"
+msgstr "Esquerda"
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:11
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:14
+msgid "Right"
+msgstr "Direita"
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:12
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:14
+#: unite-next@lucastsudaka.github.io/prefs.js:62
+msgid "Auto"
+msgstr "Auto"
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:15
 msgid "First"
 msgstr "Primeiro"
 
-#: overrides/settings.ui:953 settings.ui:525
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:15
 msgid "Last"
 msgstr "Último"
 
-#: overrides/settings.ui:980 settings.ui:538
-msgid "Top bar window buttons theme"
-msgstr "Tema dos botões de janela da barra superior"
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:17
+msgid "Start"
+msgstr "Início"
 
-#: overrides/settings.ui:997 settings.ui:549
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:17
+msgid "Middle"
+msgstr "Meio"
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:17
+msgid "End"
+msgstr "Fim"
+
+#: unite-next@lucastsudaka.github.io/prefs.js:62
 msgid "Default"
 msgstr "Padrão"
 
-#: overrides/settings.ui:1021 settings.ui:561
-msgid "Appearance"
-msgstr "Aparência"
+#: unite-next@lucastsudaka.github.io/prefs.js:64
+msgid "Unavailable theme"
+msgstr ""
+
+#~ msgid "Extend top bar left box"
+#~ msgstr "Estender a caixa esquerda da barra superior"
+
+#~ msgid "Show system tray in top bar"
+#~ msgstr "Mostrar área de notificação na barra superior"
+
+#~ msgid "Show desktop name in top bar"
+#~ msgstr "Mostrar o nome do ambiente na barra superior"
+
+#~ msgid "Enable titlebar actions on top bar click"
+#~ msgstr "Habilitar ações da barra de título no clique da barra superior"
+
+#~ msgid "Hide activities button"
+#~ msgstr "Ocultar botão de atividades"
+
+#~ msgid "Show window title in app menu"
+#~ msgstr "Mostrar título da janela no menu de aplicativo"
+
+#~ msgid "Show window buttons in top bar"
+#~ msgstr "Mostrar botões da janela na barra superior"
+
+#~ msgid "Notification messages position"
+#~ msgstr "Posição das mensagens de notificação"
+
+#~ msgid "Apply system fonts to shell theme"
+#~ msgstr "Aplicar fontes do sistema ao tema do shell"
+
+#~ msgid "Hide top bar dropdown arrows"
+#~ msgstr "Ocultar as setas de menu suspenso da barra superior"
+
+#~ msgid "Hide aggregate menu dropdown arrow"
+#~ msgstr "Ocultar seta de menu suspenso do menu de agregação"
+
+#~ msgid "Hide app menu dropdown arrow"
+#~ msgstr "Ocultar seta de menu suspenso do menu de aplicativo"
+
+#~ msgid "Hide app menu application icon"
+#~ msgstr "Ocultar ícone de aplicativo do menu de aplicativo"
+
+#~ msgid "Reduce top bar items spacing"
+#~ msgstr "Reduzir espaçamento de itens da barra superior"
+
+#~ msgid "Top bar desktop name text"
+#~ msgstr "Texto do nome do ambiente na barra superior"
+
+#~ msgid "GNOME Desktop"
+#~ msgstr "GNOME Desktop"
+
+#~ msgid "Max width for the app menu"
+#~ msgstr "Largura máxima do menu de aplicativo"
+
+#~ msgid "Ellipsis mode for app menu"
+#~ msgstr "Modo de reticências para o menu de aplicativo"
+
+#~ msgid "Top bar window buttons position"
+#~ msgstr "Posição dos pontões de janela da barra superior"
+
+#~ msgid "Top bar window buttons theme"
+#~ msgstr "Tema dos botões de janela da barra superior"
+
+#~ msgid "Appearance"
+#~ msgstr "Aparência"

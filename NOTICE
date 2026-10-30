@@ -1,0 +1,29 @@
+Unite Next
+
+This project is a modified fork of Unite Shell by the hardpixel/unite-shell
+contributors: https://github.com/hardpixel/unite-shell
+The verified upstream source is commit
+7a67cecf52a543c3620a3859b909cc81e9204894.
+
+Modification notice — 2026-10-29
+Unite Next changes include GNOME Shell 50/51 modernization, lifecycle and
+resource ownership fixes, native preferences, build and verification tools, and
+an independent installation and settings identity. These modifications do not
+imply endorsement by the upstream project or the projects credited below.
+
+The project retains the GNU General Public License version 3 in LICENSE.
+Existing source copyright notices and translator credits remain applicable.
+Translation authors and language teams are credited in translations/*.po in the
+corresponding sources.
+
+Upstream credits
+Unite Shell credits these projects as inspiration:
+- Pixel Saver: https://github.com/deadalnix/pixel-saver
+- TopIcons Plus: https://github.com/phocean/TopIcons-plus
+- Extend Left Box: https://github.com/StephenPCG/extend-left-box
+
+The bundled window-control artwork was inherited from the verified upstream
+source. Available upstream records do not establish a separate original author
+or license for every theme; this notice makes no such attribution claim.
+Resource origins, comparison method and limitations are recorded in
+docs/asset-provenance.md in the corresponding sources.

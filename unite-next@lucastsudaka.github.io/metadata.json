@@ -1,0 +1,13 @@
+{
+  "shell-version": [
+    "50",
+    "51"
+  ],
+  "uuid": "unite-next@lucastsudaka.github.io",
+  "url": "https://github.com/lucastsudaka/unite-next",
+  "settings-schema": "org.gnome.shell.extensions.unite-next",
+  "gettext-domain": "unite-next",
+  "version": 1,
+  "name": "Unite Next",
+  "description": "Unite Next is an independent fork of Unite Shell, a GNOME Shell extension which makes a few layout tweaks to the top panel and removes window decorations to make it look like the Unity Shell.\n\n- Adds window buttons to the top panel for maximized windows.\n- Shows current window title in the app menu for maximized windows.\n- Removes titlebars on maximized windows.\n- Hides window controls on maximized windows with headerbars.\n- Moves the date to the right, reduces panel spacing and removes dropdown arrows.\n- Moves X11 tray icons to the top panel.\n- Moves notifications to the right.\n- Hides workspace switcher button.\n- Adds desktop name to the top panel.\n\nXWayland decoration handling requires Python 3 and the system libX11 library.\n\n*Settings are provided to enable/disable or customize the available tweaks.\n* GTK 3/4 application styling and XWayland decoration handling are supported."
+}

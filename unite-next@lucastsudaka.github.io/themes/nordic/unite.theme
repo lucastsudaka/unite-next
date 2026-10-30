@@ -1,0 +1,17 @@
+[Theme]
+Name=Nordic
+
+[Dark]
+Style=stylesheet.css
+
+[Light]
+Style=stylesheet.css
+
+[Icons]
+close-hover=close-prelight.svg
+close-active=close-prelight.svg
+minimize=min.svg
+minimize-hover=min-prelight.svg
+minimize-active=min-prelight.svg
+maximize-hover=maximize-prelight.svg
+maximize-active=maximize-prelight.svg

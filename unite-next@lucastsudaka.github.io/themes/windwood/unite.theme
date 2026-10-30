@@ -1,0 +1,13 @@
+[Theme]
+Name=Windwood
+
+[Dark]
+Style=stylesheet.css
+
+[Light]
+Style=stylesheet.css
+
+[Icons]
+close-active=close-hover.svg
+minimize-active=minimize-hover.svg
+maximize-active=maximize-hover.svg

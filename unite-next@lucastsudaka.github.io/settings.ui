@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface domain="unite-next">
+  <requires lib="gtk" version="4.0" />
+  <object class="GtkAdjustment" id="maxwidth_appmenu_adjustment">
+    <property name="upper">1000</property>
+    <property name="step-increment">1</property>
+    <property name="page-increment">10</property>
+  </object>
+  <object class="AdwPreferencesPage" id="general_page">
+    <property name="name">general-page</property>
+    <property name="title" translatable="yes">General</property>
+    <property name="icon-name">emblem-system-symbolic</property>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title" translatable="yes">Layout Tweaks</property>
+        <child>
+          <object class="AdwSwitchRow" id="extend_left_box">
+            <property name="title" translatable="yes">Extend panel left box</property>
+            <property name="subtitle" translatable="yes">Extend top panel left box</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSwitchRow" id="reduce_panel_spacing">
+            <property name="title" translatable="yes">Reduce panel spacing</property>
+            <property name="subtitle" translatable="yes">Reduce top panel icons and buttons spacing</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="notifications_position">
+            <property name="title" translatable="yes">Notifications position</property>
+            <property name="subtitle" translatable="yes">System notification messages position</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title" translatable="yes">System Tray</property>
+        <child>
+          <object class="AdwSwitchRow" id="show_legacy_tray">
+            <property name="title" translatable="yes">Enable tray</property>
+            <property name="subtitle" translatable="yes">Show system tray in top panel</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSwitchRow" id="greyscale_tray_icons">
+            <property name="title" translatable="yes">Greyscale icons</property>
+            <property name="subtitle" translatable="yes">Convert tray icons to greyscale</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title" translatable="yes">Application Menu</property>
+        <child>
+          <object class="AdwSwitchRow" id="show_appmenu_button">
+            <property name="title" translatable="yes">Enable appmenu</property>
+            <property name="subtitle" translatable="yes">Show appmenu button in top panel</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSpinRow" id="app_menu_max_width">
+            <property name="title" translatable="yes">Maximum width</property>
+            <property name="subtitle" translatable="yes">Maximum width for the appmenu button label</property>
+            <property name="adjustment">maxwidth_appmenu_adjustment</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="app_menu_ellipsize_mode">
+            <property name="title" translatable="yes">Text ellipsis</property>
+            <property name="subtitle" translatable="yes">Text ellipsis mode for appmenu button label</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSwitchRow" id="hide_app_menu_icon">
+            <property name="title" translatable="yes">Disable icon</property>
+            <property name="subtitle" translatable="yes">Hide application icon in appmenu button</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title" translatable="yes">Workspace Switcher</property>
+        <child>
+          <object class="AdwSwitchRow" id="use_activities_text">
+            <property name="title" translatable="yes">Use text button</property>
+            <property name="subtitle" translatable="yes">Revive old activities text button</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="hide_activities_button">
+            <property name="title" translatable="yes">Hide switcher</property>
+            <property name="subtitle" translatable="yes">Hide workspace switcher button</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title" translatable="yes">Desktop Name</property>
+        <child>
+          <object class="AdwSwitchRow" id="show_desktop_name">
+            <property name="title" translatable="yes">Enable desktop name</property>
+            <property name="subtitle" translatable="yes">Show desktop name label in top panel</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwEntryRow" id="desktop_name_text">
+            <property name="title" translatable="yes">Desktop name label</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="AdwPreferencesPage" id="windows_page">
+    <property name="name">appearance-page</property>
+    <property name="title" translatable="yes">Windows</property>
+    <property name="icon-name">image-x-generic-symbolic</property>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title" translatable="yes">Behavior</property>
+        <child>
+          <object class="AdwSwitchRow" id="restrict_to_primary_screen">
+            <property name="title" translatable="yes">Primary screen only</property>
+            <property name="subtitle" translatable="yes">Restrict functionalities to the primary screen</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSwitchRow" id="autofocus_windows">
+            <property name="title" translatable="yes">Auto focus</property>
+            <property name="subtitle" translatable="yes">Auto focus new windows</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSwitchRow" id="enable_titlebar_actions">
+            <property name="title" translatable="yes">Panel click actions</property>
+            <property name="subtitle" translatable="yes">Enable titlebar actions on top panel click</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title" translatable="yes">Titlebars</property>
+        <child>
+          <object class="AdwComboRow" id="hide_window_titlebars">
+            <property name="title" translatable="yes">Hide titlebars</property>
+            <property name="subtitle" translatable="yes">Hide window titlebars</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="show_window_title">
+            <property name="title" translatable="yes">Show appmenu title</property>
+            <property name="subtitle" translatable="yes">Show window title in top panel appmenu</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title" translatable="yes">Buttons</property>
+        <child>
+          <object class="AdwComboRow" id="show_window_buttons">
+            <property name="title" translatable="yes">Show buttons</property>
+            <property name="subtitle" translatable="yes">Show window buttons in top panel</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="window_buttons_placement">
+            <property name="title" translatable="yes">Panel position</property>
+            <property name="subtitle" translatable="yes">Window buttons position in top panel</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="window_buttons_theme">
+            <property name="title" translatable="yes">Icon theme</property>
+            <property name="subtitle" translatable="yes">Top panel window buttons theme</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSwitchRow" id="icon_scale_workaround">
+            <property name="title" translatable="yes">Apply icon scale fix (experimental)</property>
+            <property name="subtitle" translatable="yes">Icons are properly rendered for multiple different display scales</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

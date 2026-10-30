@@ -1,0 +1,9 @@
+{
+  "uuid": "unite@hardpixel.eu",
+  "name": "Upstream conflict verification fixture",
+  "description": "Private native-manager fixture for Unite Next activation isolation tests.",
+  "shell-version": ["50", "51"],
+  "settings-schema": "org.gnome.shell.extensions.unite",
+  "gettext-domain": "unite-upstream-conflict-fixture",
+  "version": 1
+}

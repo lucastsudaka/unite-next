@@ -1,0 +1,10 @@
+# Disposable GNOME 51 acceptance environment; no host desktop access is required.
+FROM registry.fedoraproject.org/fedora@sha256:1938d19715469f7876b8e83060b4f4619cdfb9bde873dbfef39d95719a641c89
+RUN dnf install --assumeyes --setopt=install_weak_deps=False \
+      gnome-shell mutter gjs gettext glib2 python3 python3-gobject-base libX11 dbus-daemon \
+      xorg-x11-server-Xwayland xprop mesa-dri-drivers gtk3 gtk4 libadwaita glibc-langpack-pt \
+    && dnf clean all
+ENV LIBGL_ALWAYS_SOFTWARE=1
+WORKDIR /workspace
+# Nested glycin/bubblewrap sandboxes can map this unprivileged UID with no capabilities.
+USER 65534:65534

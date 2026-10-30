@@ -1,0 +1,44 @@
+#panel.unite-next-shell .panel-button.window-controls {
+  -natural-hpadding: 0px;
+  -minimum-hpadding: 0px;
+}
+
+#panel.unite-next-shell .panel-button .app-menu-icon {
+  -st-icon-style: symbolic;
+}
+
+#panel.unite-next-shell .window-controls-box {
+  spacing: 2px;
+}
+
+#panel.unite-next-shell .window-controls-box .window-button {
+  width: 22px;
+}
+
+#panel.unite-next-shell #panelLeft .window-controls-container:first-child .window-button:first-child {
+  padding-left: 3px;
+}
+
+#panel.unite-next-shell #panelRight .window-controls-container:last-child .window-button:last-child {
+  padding-right: 3px;
+}
+
+#panel.unite-next-shell .window-controls-box .icon {
+  background-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  border: 0;
+}
+
+#panel.unite-next-shell #appMenu {
+  spacing: 6px;
+}
+
+#panel.unite-next-shell #appMenu .label-shadow {
+  color: transparent;
+}
+
+#panel.unite-next-shell #appMenu .panel-status-menu-box {
+  padding: 0 6px;
+  spacing: 8px;
+}

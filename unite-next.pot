@@ -1,0 +1,316 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR Unite Shell and Unite Next contributors
+# This file is distributed under the same license as the unite-next package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: unite-next 1\n"
+"Report-Msgid-Bugs-To: https://github.com/lucastsudaka/unite-next/issues\n"
+"POT-Creation-Date: 1970-01-01 00:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: unite-next@lucastsudaka.github.io/settings.ui:11
+msgid "General"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:15
+msgid "Layout Tweaks"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:18
+msgid "Extend panel left box"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:19
+msgid "Extend top panel left box"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:24
+msgid "Reduce panel spacing"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:25
+msgid "Reduce top panel icons and buttons spacing"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:30
+msgid "Notifications position"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:31
+msgid "System notification messages position"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:38
+msgid "System Tray"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:41
+msgid "Enable tray"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:42
+msgid "Show system tray in top panel"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:47
+msgid "Greyscale icons"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:48
+msgid "Convert tray icons to greyscale"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:55
+msgid "Application Menu"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:58
+msgid "Enable appmenu"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:59
+msgid "Show appmenu button in top panel"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:64
+msgid "Maximum width"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:65
+msgid "Maximum width for the appmenu button label"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:71
+msgid "Text ellipsis"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:72
+msgid "Text ellipsis mode for appmenu button label"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:77
+msgid "Disable icon"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:78
+msgid "Hide application icon in appmenu button"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:85
+msgid "Workspace Switcher"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:88
+msgid "Use text button"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:89
+msgid "Revive old activities text button"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:94
+msgid "Hide switcher"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:95
+msgid "Hide workspace switcher button"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:102
+msgid "Desktop Name"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:105
+msgid "Enable desktop name"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:106
+msgid "Show desktop name label in top panel"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:111
+msgid "Desktop name label"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:119
+msgid "Windows"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:123
+msgid "Behavior"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:126
+msgid "Primary screen only"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:127
+msgid "Restrict functionalities to the primary screen"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:132
+msgid "Auto focus"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:133
+msgid "Auto focus new windows"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:138
+msgid "Panel click actions"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:139
+msgid "Enable titlebar actions on top panel click"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:146
+msgid "Titlebars"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:149
+msgid "Hide titlebars"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:150
+msgid "Hide window titlebars"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:155
+msgid "Show appmenu title"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:156
+msgid "Show window title in top panel appmenu"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:163
+msgid "Buttons"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:166
+msgid "Show buttons"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:167
+msgid "Show window buttons in top panel"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:172
+msgid "Panel position"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:173
+msgid "Window buttons position in top panel"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:178
+msgid "Icon theme"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:179
+msgid "Top panel window buttons theme"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:184
+msgid "Apply icon scale fix (experimental)"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:185
+msgid "Icons are properly rendered for multiple different display scales"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/buttons.js:274
+msgid "Close"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/buttons.js:275
+msgid "Minimize"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/buttons.js:276
+msgid "Restore"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/buttons.js:276
+msgid "Maximize"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:3
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:12
+msgid "Never"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:3
+msgid "Tiled"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:3
+msgid "Maximized"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:4
+msgid "Both"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:4
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:12
+msgid "Always"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:11
+msgid "Center"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:11
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:14
+msgid "Left"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:11
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:14
+msgid "Right"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:12
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:14
+#: unite-next@lucastsudaka.github.io/prefs.js:62
+msgid "Auto"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:15
+msgid "First"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:15
+msgid "Last"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:17
+msgid "Start"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:17
+msgid "Middle"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/preferences-bindings.js:17
+msgid "End"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/prefs.js:62
+msgid "Default"
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/prefs.js:64
+msgid "Unavailable theme"
+msgstr ""
