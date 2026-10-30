@@ -82,7 +82,7 @@ jobs:
           if (os.environ["GITHUB_REPOSITORY"] != repository or
                   os.environ["GITHUB_REF"] != "refs/heads/master" or
                   not re.fullmatch(r"[0-9a-f]{40}", commit) or commit != os.environ["GITHUB_SHA"] or
-                  subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip() != commit):
+                  subprocess.check_output(["git", "-c", f"safe.directory={Path.cwd()}", "rev-parse", "HEAD"], text=True).strip() != commit):
               raise ValueError("Dispatch must select the exact reviewed master commit")
           for name in ("ACCEPTED_RUN_ID", "ACCEPTED_ARTIFACT_ID"):
               if not re.fullmatch(r"[1-9][0-9]*", os.environ[name]):
