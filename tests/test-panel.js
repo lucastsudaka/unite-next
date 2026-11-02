@@ -1,6 +1,14 @@
 // REQ-LIFE-001/002, REQ-PANEL-001, REQ-THEME-001, REQ-PREF-002.
-// Execute the actual module bodies with UI boundary doubles, without a desktop.
-const {GLib, Gio} = imports.gi
+// Import the actual ESM factories with UI boundary doubles, without a desktop.
+import GLib from 'gi://GLib'
+import NativeClutter from 'gi://Clutter'
+import NativeGObject from 'gi://GObject'
+import { Signals } from '../unite-next@lucastsudaka.github.io/resources.js'
+import { Settings } from '../unite-next@lucastsudaka.github.io/settings.js'
+import { Features } from '../unite-next@lucastsudaka.github.io/features.js'
+import { createButtonWidgets, WINDOW_CONTROLS_SCOPE } from '../unite-next@lucastsudaka.github.io/button-widgets.js'
+import { createPanelFeatures, createPanelManager } from '../unite-next@lucastsudaka.github.io/panel-features.js'
+import { createLayoutFeatures, createLayoutManager } from '../unite-next@lucastsudaka.github.io/layout-features.js'
 
 function assert(value, message = 'Assertion failed') {
   if (!value) throw new Error(message)
@@ -10,6 +18,8 @@ function equal(actual, expected, message = '') {
   assert(JSON.stringify(actual) == JSON.stringify(expected),
     `${message}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`)
 }
+
+assert(GLib.getenv('UNITE_PRIVATE_TEST') === '1', 'Run with disposable HOME/XDG/settings state')
 
 class Emitter {
   constructor() { this.listeners = new Map(); this.nextId = 1 }
@@ -26,6 +36,14 @@ class Emitter {
     }
     return result
   }
+}
+
+class PresentationSource extends Emitter {
+  observePresentation(callback) {
+    const id = this.connect('presentation', callback)
+    return () => this.disconnect(id)
+  }
+  invalidate() { this.emit('presentation') }
 }
 
 class Actor extends Emitter {
@@ -83,52 +101,36 @@ class ClickGesture extends Emitter {
   }
 }
 
-function runCleanup(callbacks) {
-  const errors = []
-  for (const callback of callbacks) {
-    try { callback() } catch (error) { errors.push(error) }
+const Styles = class { addShellStyle() {} addScopedShellStyle() {} removeAll() {} }
+const InjectionManager = class {
+  constructor() { this.overrides = [] }
+  overrideMethod(prototype, name, create) {
+    const original = prototype[name]
+    this.overrides.push([prototype, name, original])
+    prototype[name] = create(original)
+    if (InjectionManager.failNext) {
+      InjectionManager.failNext = false
+      throw new Error('Injected native override acquisition failure')
+    }
   }
-  if (errors.length) throw new AggregateError(errors, 'Cleanup failed')
-}
-
-class Signals {
-  constructor() { this.connections = [] }
-  connect(object, name, callback) {
-    this.connections.push([object, object.connect(name, callback)])
+  clear() {
+    for (const [prototype, name, original] of this.overrides) prototype[name] = original
+    this.overrides = []
   }
-  disconnectAll() {
-    for (const [object, id] of this.connections) object.disconnect(id)
-    this.connections = []
-  }
-}
-
-class Settings extends Emitter {
-  constructor(context) { super(); this.context = context }
-  get(key) { return this.context.values[key] }
-  disconnectAll() { this.listeners.clear() }
-}
-
-const Handlers = {
-  Feature: class {
-    constructor(context, key, predicate) { this.context = context; this._settingsKey = key; this._checkActive = predicate }
-  },
-  Signals, Settings, runCleanup,
-  Timeouts: class { removeAll() {} },
-  Styles: class { addShellStyle() {} removeAll() {} },
-  Features: class {},
-  Injections: class { vfunc() {} removeAll() {} }
 }
 const GObject = {Object: class {}, registerClass: klass => klass}
 const Clutter = {
   ActorAlign: {CENTER: 0, START: 1, END: 2},
-  EventPhase: {TARGET: 1}, EventType: {BUTTON_PRESS: 1, TOUCH_BEGIN: 2},
+  EventPhase: {TARGET: 1},
+  EventType: {TOUCH_BEGIN: 2},
   TextDirection: {RTL: 1}, ClickGesture,
   ActorBox: class {}
 }
 const themeContext = new Emitter()
 themeContext.scale_factor = 2
 const St = {
-  Bin: Actor, BoxLayout: Actor, Button: Actor, Icon: Actor, Label: Actor,
+  Bin: Actor, BoxLayout: Actor,
+  Button: Actor, Icon: Actor, Label: Actor,
   ThemeContext: {get_for_stage: () => themeContext}
 }
 const Shell = {
@@ -172,51 +174,46 @@ const theme = {
   }]))
 }
 const Theme = {
-  WindowControlsThemes: class { get default() { return theme } locate() { return theme } },
+  WindowControlsThemes: class { get default() { return theme } locate() { return theme } update() {} },
   isColorDark: color => color.red < 128
 }
 
-function loadModule(file, names, boundaries) {
-  let source
-  const baseline = GLib.getenv('UNITE_PANEL_BASELINE')
-  if (baseline) {
-    const process = Gio.Subprocess.new(['git', 'show', `${baseline}:unite-next@lucastsudaka.github.io/${file}`], Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE)
-    const [, stdout, stderr] = process.communicate_utf8(null, null)
-    if (!process.get_successful()) throw new Error(stderr)
-    source = stdout
-  } else {
-    source = new TextDecoder().decode(GLib.file_get_contents(`unite-next@lucastsudaka.github.io/${file}`)[1])
-  }
-  source = source.replace(/^import .*\n/gm, '').replace(/^export /gm, '')
-  return Function(...Object.keys(boundaries), `${source}\nreturn {${names.join(',')}}`)(...Object.values(boundaries))
-}
-
 const globalFixture = {stage: {key_focus: null}}
-const Buttons = loadModule('buttons.js', ['WindowControls', 'AppmenuLabel'], {
-  GObject, St, Clutter, Main, PanelMenu: {Button: PanelButton}, _: value => `translated:${value}`,
-  Animation: {}, AppMenu: class {}, runCleanup, global: globalFixture
-})
-const panel = loadModule('panel.js', ['AppmenuButton', 'WindowButtons', 'ExtendLeftBox', 'ActivitiesButton', 'ActivitiesText', 'DesktopName', 'TrayIcons', 'TitlebarActions'], {
-  GObject, St, Clutter, Main, Buttons, Theme, Shell, Handlers,
+const Buttons = {
+  ...createButtonWidgets({
+    GObject, St, Clutter, Main, PanelMenu: {Button: PanelButton}, gettext: value => `translated:${value}`,
+    Animation: {}, AppMenu: class {}
+  }),
+  WINDOW_CONTROLS_SCOPE
+}
+const panel = createPanelFeatures({
+  St, Clutter, Main, Buttons, Theme, Shell, Styles, InjectionManager,
   Meta: {WindowMenuType: {WM: 1}}, Pango: {EllipsizeMode: {END: 0}}, global: globalFixture
 })
-const layout = loadModule('layout.js', ['Messages', 'PanelSpacing'], {GObject, St, Clutter, Main, Handlers, global: globalFixture})
+const layoutWarnings = []
+const layout = createLayoutFeatures({
+  St, Clutter, Main, Styles, global: globalFixture,
+  warn: message => layoutWarnings.push(message)
+})
 
 function context() {
   const activities = new Actor()
   activities.container = new Actor()
-  return {
-    values: {
+  const values = {
+      'button-layout': ':close,minimize,maximize',
       'window-buttons-layout': ['close', 'minimize', 'maximize'],
       'window-buttons-position': 'right', 'window-buttons-placement': 'auto',
       'window-buttons-theme': 'selected', 'gtk-theme': 'Adwaita', 'icon-scale-workaround': true,
       'action-double-click-titlebar': 'toggle-maximize',
       'action-middle-click-titlebar': 'minimize', 'action-right-click-titlebar': 'menu',
       'notifications-position': 'right'
-    },
+  }
+  const source = Object.assign(new Emitter(), { exists: key => key in values, getSetting: key => values[key] })
+  return {
+    values, settings: { extension: source },
     activities, windowTracker: new Emitter(), appSystem: new Emitter(),
     focusApp: {state: 2},
-    focusWindow: {hideTitlebars: true, showButtons: true, maximized: false, win: {id: 5}, syncAppmenu() {}}
+    focusWindow: {hideTitlebars: true, showButtons: true, hasFocus: true, skipTaskbar: false, maximized: false, win: {id: 5}}
   }
 }
 
@@ -251,6 +248,37 @@ test('empty layouts and reversed layouts preserve the input in every placement',
   equal(original, ['close', 'minimize', 'maximize'])
 })
 
+test('panel allocation preserves finite nonnegative widths at normal, exact and overflow boundaries', () => {
+  const saved = Main.panel
+  try {
+    for (const rtl of [false, true]) {
+      for (const [width, center, right, expectedLeft] of [[1280, 200, 400, 300], [1280, 200, 1080, 0], [1280, 200, 1200, 0]]) {
+        const allocations = []
+        const box = natural => ({
+          get_preferred_width: () => [natural, natural],
+          allocate: value => allocations.push({...value})
+        })
+        Main.panel = {
+          set_allocation() {}, get_text_direction: () => rtl ? Clutter.TextDirection.RTL : 0,
+          _leftBox: box(300), _centerBox: box(center), _rightBox: box(right)
+        }
+        panel.ExtendLeftBox.prototype._allocate({x1: 0, y1: 0, x2: width, y2: 32})
+        equal(allocations.length, 3)
+        for (const allocation of allocations) {
+          assert(Object.values(allocation).every(Number.isFinite), 'Panel geometry must remain finite')
+          assert(allocation.x2 >= allocation.x1 && allocation.y2 >= allocation.y1,
+            `Negative allocation at ${rtl}/${width}/${center}/${right}`)
+        }
+        equal(allocations[0].x2 - allocations[0].x1, expectedLeft, 'Available left space')
+        equal(allocations[1].x2 - allocations[1].x1, center, 'Retained center natural width')
+        equal(allocations[2].x2 - allocations[2].x1, right, 'Retained right natural width')
+      }
+    }
+  } finally {
+    Main.panel = saved
+  }
+})
+
 test('persisted icon mode initializes before buttons and brightness/mode changes replace assets', () => {
   const owner = new panel.WindowButtons(context())
   owner.activate()
@@ -272,7 +300,7 @@ test('persisted icon mode initializes before buttons and brightness/mode changes
 
 test('controls expose translated names, keyboard focus, current focus target and pressed icon priority', () => {
   const ctx = context()
-  const controls = new Buttons.WindowControls(ctx)
+  const controls = new Buttons.WindowControls(() => ctx.focusWindow)
   controls.setControlThemeParams({actionIcons: theme.getActionIcons(true), iconScaleWorkaround: true})
   controls.addButtons(['close', 'minimize', 'maximize'])
   for (const [action, button] of controls._buttons) {
@@ -294,6 +322,26 @@ test('controls expose translated names, keyboard focus, current focus target and
   equal(closed, 1)
 })
 
+test('control theme ownership marks every target without changing the native actor hierarchy', () => {
+  for (const mode of [false, true]) {
+    const controls = new Buttons.WindowControls(() => context().focusWindow)
+    controls.setControlThemeParams({actionIcons: theme.getActionIcons(true), iconScaleWorkaround: mode})
+    controls.addButtons(['close', 'minimize', 'maximize'])
+    const actors = [controls.container, controls, controls._controls]
+    for (const button of controls._buttons.values()) {
+      actors.push(button, button.children[0])
+      if (mode) actors.push(button.children[0].children[0])
+    }
+    for (const actor of actors) {
+      const classes = [actor.style_class || '', ...actor.styles].flatMap(value => value.split(/\s+/))
+      assert(classes.includes('unite-next-window-controls'), 'An owned CSS target lacks the fork scope')
+    }
+    assert(controls.container.children.length === 1 && controls.container.children[0] === controls, 'Native container hierarchy changed')
+    assert(controls.children.length === 1 && controls.children[0] === controls._controls, 'Native control hierarchy changed')
+    controls.destroy()
+  }
+})
+
 test('busy app subscriptions are released and independent cleanup survives a failure', () => {
   const ctx = context()
   const app = new Emitter()
@@ -303,20 +351,112 @@ test('busy app subscriptions are released and independent cleanup survives a fai
   const owner = new panel.AppmenuButton(ctx)
   owner.focused = null
   owner.appSignals = new Signals()
-  owner.button = {setApp() {}, stopAnimation() {}, setReactive() {}, setVisible() {}, destroy() { owner.buttonDestroyed = true }}
+  owner.button = {
+    setApp() {}, stopAnimation() {}, setReactive() {}, setVisible() {},
+    setText(text) { owner.text = text }, destroy() { owner.buttonDestroyed = true }
+  }
   owner.tooltip = {destroy() { owner.tooltipDestroyed = true }}
   owner.signals = new Signals()
   owner.settings = new Settings(ctx)
-  owner.timeouts = {removeAll() { throw new Error('Injected timeout cleanup failure') }}
+  const timeoutError = new Error('Injected timeout cleanup failure')
+  owner.timeouts = {removeAll() { throw timeoutError }}
+  ctx.focusWindow.title = 'First\r\nwindow\nline\rend'
   owner._syncState()
   equal(app.listeners.size, 1)
+  equal(owner.text, 'First window line end', 'Panel sanitizes the focused title')
+  ctx.focusWindow = {hasFocus: true, title: 'Second\nwindow'}
+  owner._syncState()
+  equal(owner.text, 'Second window', 'Same-app window changes refresh panel-owned title')
   let error
   try { owner.destroy() } catch (caught) { error = caught }
-  assert(error instanceof AggregateError)
+  assert(error === timeoutError, 'Single cleanup failure must retain its original identity')
   assert(owner.buttonDestroyed && owner.tooltipDestroyed)
   equal(app.listeners.size, 0)
   Object.defineProperty(ctx, 'focusApp', {get() { throw new Error('Destroyed owner callback executed') }})
   app.emit('notify::busy')
+})
+
+test('app menu opening and hover changes cancel pending tooltip work', () => {
+  const owner = new panel.AppmenuButton(context())
+  owner.context.values['app-menu-max-width'] = 40
+  owner.settings = new Settings(owner.context)
+  const callbacks = new Map()
+  let nextId = 0
+  owner.timeouts = {
+    timeout(_milliseconds, callback) { const id = ++nextId; callbacks.set(id, callback); return id },
+    remove(id) { callbacks.delete(id) }
+  }
+  owner.tooltip = {visible: false, hide() { this.visible = false }}
+  const button = {menu: {isOpen: false}, get_hover: () => true}
+  owner._onAppMenuHover(button)
+  equal(callbacks.size, 1)
+  button.menu.isOpen = true
+  owner._hideTooltip()
+  equal(callbacks.size, 0, 'Opening the menu must cancel pending hover work')
+  equal(owner.tooltipTimeout, null)
+  owner._onAppMenuHover(button)
+  equal(callbacks.size, 0, 'An open menu must not schedule another tooltip')
+  button.menu.isOpen = false
+  owner._onAppMenuHover(button)
+  equal(callbacks.size, 1)
+  button.get_hover = () => false
+  owner._onAppMenuHover(button)
+  equal(callbacks.size, 0, 'Leaving the app menu must cancel pending hover work')
+  equal(owner.tooltip.visible, false)
+})
+
+test('activities policy updates immediately between active enum values and releases its observers', () => {
+  const ctx = context()
+  Object.assign(ctx.values, {'hide-activities-button': 'auto', 'show-desktop-name': false})
+  ctx.focusApp = null
+  const source = ctx.settings.extension
+  const overviewListeners = Main.overview.listeners.size
+  const owner = new Features(ctx)
+  owner.add(panel.ActivitiesButton)
+  try {
+    owner.activate()
+    equal(ctx.activities.container.visible, true, 'Auto shows Activities without a focused app')
+    ctx.values['hide-activities-button'] = 'always'
+    source.emit('changed::hide-activities-button')
+    equal(ctx.activities.container.visible, false, 'Always hides Activities without another desktop event')
+    ctx.values['hide-activities-button'] = 'auto'
+    source.emit('changed::hide-activities-button')
+    equal(ctx.activities.container.visible, true, 'Auto restores Activities without another desktop event')
+  } finally {
+    owner.destroy()
+  }
+  equal([source.listeners.size, ctx.appSystem.listeners.size, ctx.windowTracker.listeners.size,
+    Main.overview.listeners.size], [0, 0, 0, overviewListeners], 'Policy observers are activation-owned')
+  ctx.activities.container.visible = false
+  source.emit('changed::hide-activities-button')
+  equal(ctx.activities.container.visible, false, 'Disabled policy has no setting callback')
+})
+
+test('native allocation override restores its exact prototype method after normal and partial acquisition', () => {
+  const saved = Main.panel
+  const original = () => {}
+  try {
+    for (const fail of [false, true]) {
+      const prototype = {vfunc_allocate: original}
+      Main.panel = Object.assign(Object.create(prototype), {queue_relayout() {}})
+      const owner = new panel.ExtendLeftBox(context())
+      let observed
+      owner._allocate = box => { observed = box }
+      InjectionManager.failNext = fail
+      let error
+      try { owner.activate() } catch (caught) { error = caught }
+      equal(Boolean(error), fail, 'Native override acquisition failure remains observable')
+      assert(prototype.vfunc_allocate !== original, 'Native override was not installed')
+      const box = {x1: 0, x2: 640}
+      prototype.vfunc_allocate(box)
+      assert(observed === box, 'Native vfunc does not use the owning feature')
+      owner.destroy()
+      assert(prototype.vfunc_allocate === original, 'Native vfunc was not restored exactly')
+    }
+  } finally {
+    InjectionManager.failNext = false
+    Main.panel = saved
+  }
 })
 
 test('app menu constructor and destructor release external ownership after failure', () => {
@@ -327,10 +467,11 @@ test('app menu constructor and destructor release external ownership after failu
   }
   const owner = Object.create(Buttons.AppmenuLabel.prototype)
   owner.menu = menu
-  owner._menuManager = {removeMenu() { calls.push('manager'); throw new Error('Injected manager failure') }}
+  const managerError = new Error('Injected manager failure')
+  owner._menuManager = {removeMenu() { calls.push('manager'); throw managerError }}
   let error
   try { owner._onDestroy() } catch (caught) { error = caught }
-  assert(error instanceof AggregateError)
+  assert(error === managerError, 'Single destructor failure must retain its original identity')
   equal(calls, ['manager', 'app', 'menu'])
   assert(owner.baseDestroyed, 'Parent widget cleanup must still execute')
   equal(owner.menu, null)
@@ -347,7 +488,7 @@ test('app menu constructor and destructor release external ownership after failu
   try { new Buttons.AppmenuLabel() } catch (caught) { error = caught }
   finally { Buttons.AppmenuLabel.prototype._initialize = original }
   assert(unwound, 'A constructor failure must destroy its externally parented menu')
-  assert(error instanceof AggregateError && error.errors.includes(acquisitionError))
+  assert(error === acquisitionError, 'Successful unwind must preserve the original acquisition error')
 })
 
 test('native target gestures arbitrate actions and restore native dragging on teardown', () => {
@@ -427,34 +568,99 @@ test('partially attached gestures unwind without retaining the native drag veto'
   equal(Main.panel.get_action('window-drag').listeners.size, 0)
 })
 
-test('tray teardown disconnects before unmanaging and releases widgets after failures', () => {
-  const order = []
-  const owner = new panel.TrayIcons(context())
-  owner.signals = {disconnectAll() { order.push('disconnect') }}
-  owner.settings = {disconnectAll() { order.push('settings') }}
-  owner.tray = {unmanage_screen() { order.push('unmanage'); throw new Error('Injected unmanage failure') }}
-  owner.indicators = {destroy() { order.push('destroy') }}
-  try { owner.destroy() } catch (error) { assert(error instanceof AggregateError) }
-  equal(order, ['disconnect', 'settings', 'unmanage', 'destroy'])
-  equal(owner.tray, null)
-  equal(owner.indicators, null)
+function bannerFixture(minimum, minimumSet, natural, naturalSet) {
+  return {
+    min_width: minimum, min_width_set: minimumSet,
+    natural_width: natural, natural_width_set: naturalSet,
+    frozen: 0,
+    set_width(width) {
+      if (width < 0) { this.min_width_set = false; this.natural_width_set = false }
+      else {
+        this.min_width = this.natural_width = width
+        this.min_width_set = this.natural_width_set = true
+      }
+    },
+    freeze_notify() { this.frozen++ },
+    thaw_notify() { this.frozen-- }
+  }
+}
+const widthRequests = banner => [banner.min_width, banner.min_width_set, banner.natural_width, banner.natural_width_set]
+
+test('notification cleanup restores independent native width requests and flags after scaling', () => {
+  for (const previous of [[420, true, 460, true], [250, true, 0, false],
+    [0, false, 460, true], [0, false, 0, false]]) {
+    const banner = bannerFixture(...previous)
+    Main.messageTray._bannerBin = banner
+    Main.messageTray.bannerAlignment = 0
+    themeContext.scale_factor = 2
+    const owner = new layout.Messages(context())
+    owner.activate()
+    equal(widthRequests(banner), [780, true, 780, true])
+    equal(Main.messageTray.bannerAlignment, 2)
+    themeContext.scale_factor = 3
+    themeContext.emit('notify::scale-factor')
+    equal(widthRequests(banner), [1170, true, 1170, true])
+    owner.destroy()
+    equal(widthRequests(banner), previous)
+    equal(Main.messageTray.bannerAlignment, 0)
+    equal([banner.frozen, themeContext.listeners.size], [0, 0])
+  }
 })
 
-test('notification scaling follows the theme context and cleanup restores prior geometry', () => {
-  const banner = {width_set: true, width: 420, set_width(width) { this.width = width }}
+test('foreign notification requests and alignment survive later updates and cleanup visibly', () => {
+  const banner = bannerFixture(420, true, 460, true)
+  Main.messageTray._bannerBin = banner
+  Main.messageTray.bannerAlignment = 0
+  const owner = new layout.Messages(context())
+  const warnings = layoutWarnings
+  warnings.length = 0
+  owner.activate()
+  banner.min_width = 333
+  banner.natural_width_set = false
+  Main.messageTray.bannerAlignment = 1
+  const foreign = widthRequests(banner)
+  themeContext.emit('notify::scale-factor')
+  owner._onPositionChange()
+  owner.destroy()
+  equal(widthRequests(banner), foreign)
+  equal(Main.messageTray.bannerAlignment, 1)
+  equal(warnings.length, 2, 'Each ownership conflict must remain visible once')
+  assert(warnings.some(message => message.includes('width')))
+  assert(warnings.some(message => message.includes('alignment')))
+  equal(themeContext.listeners.size, 0)
+  equal(owner.banner, null)
+})
+
+test('cleanup detects previously unobserved foreign notification geometry independently', () => {
+  const banner = bannerFixture(420, true, 460, true)
+  Main.messageTray._bannerBin = banner
+  Main.messageTray.bannerAlignment = 0
+  const owner = new layout.Messages(context())
+  layoutWarnings.length = 0
+  owner.activate()
+  banner.min_width_set = false
+  Main.messageTray.bannerAlignment = 1
+  const foreign = widthRequests(banner)
+  owner.destroy()
+  equal(widthRequests(banner), foreign)
+  equal(Main.messageTray.bannerAlignment, 1)
+  equal(layoutWarnings.length, 2)
+  equal(themeContext.listeners.size, 0)
+})
+
+test('notification restore failure still releases signals and references', () => {
+  const banner = bannerFixture(420, true, 460, true)
   Main.messageTray._bannerBin = banner
   Main.messageTray.bannerAlignment = 0
   const owner = new layout.Messages(context())
   owner.activate()
-  equal(banner.width, 780)
-  equal(Main.messageTray.bannerAlignment, 2)
-  themeContext.scale_factor = 3
-  themeContext.emit('notify::scale-factor')
-  equal(banner.width, 1170)
-  owner.destroy()
-  equal(banner.width, 420)
-  equal(Main.messageTray.bannerAlignment, 0)
+  banner.freeze_notify = () => { throw new Error('Injected geometry restore failure') }
+  let error
+  try { owner.destroy() } catch (caught) { error = caught }
+  assert(error, 'Geometry cleanup failure disappeared')
   equal(themeContext.listeners.size, 0)
+  equal(owner.banner, null)
+  equal(Main.messageTray.bannerAlignment, 0)
 })
 
 test('partial feature activation can always unwind independent owned resources', () => {
@@ -465,8 +671,6 @@ test('partial feature activation can always unwind independent owned resources',
 })
 
 test('installed click gesture API matches the configured recognition contract', () => {
-  imports.gi.versions.Clutter = GLib.getenv('UNITE_CLUTTER_VERSION') || '18'
-  const NativeClutter = imports.gi.Clutter
   const gesture = new NativeClutter.ClickGesture({required_button: 2, n_clicks_required: 1, recognize_on_press: true})
   equal([gesture.required_button, gesture.n_clicks_required, gesture.recognize_on_press], [2, 1, true])
   equal(gesture.emit('may-recognize'), true)
@@ -477,25 +681,61 @@ test('installed click gesture API matches the configured recognition contract', 
 })
 
 test('native manager objects initialize their GObject base and preserve their enable context', () => {
-  const NativeGObject = imports.gi.GObject
-  const features = class {
-    constructor(context) { this.context = context }
-    add() {}
-  }
-  const nativeHandlers = {...Handlers, Features: features}
-  const {PanelManager} = loadModule('panel.js', ['PanelManager'], {
-    GObject: NativeGObject, St, Clutter, Main, Buttons, Theme, Shell, Handlers: nativeHandlers,
-    Meta: {WindowMenuType: {WM: 1}}, Pango: {}, global: globalFixture
-  })
-  const {LayoutManager} = loadModule('layout.js', ['LayoutManager'], {
-    GObject: NativeGObject, St, Clutter, Main, Handlers: nativeHandlers, global: globalFixture
-  })
+  const PanelManager = createPanelManager({GObject: NativeGObject, featureTypes: panel})
+  const LayoutManager = createLayoutManager({GObject: NativeGObject, featureTypes: layout})
   const ctx = context()
   for (const type of [PanelManager, LayoutManager]) {
-    const manager = new type(ctx)
+    const manager = new type(ctx, new Emitter())
     assert(manager.ref_count > 0, 'Native GObject instance was not initialized')
     assert(manager.features.context === ctx, 'Enable context changed')
+    manager.destroy()
   }
+
+  const disabledContext = () => {
+    const state = context()
+    Object.assign(state.values, {
+      'show-appmenu-button': false, 'show-window-buttons': 'never', 'extend-left-box': false,
+      'hide-activities-button': 'never', 'use-activities-text': false, 'show-desktop-name': false,
+      'enable-titlebar-actions': false
+    })
+    return state
+  }
+  const state = disabledContext()
+  const presentation = new PresentationSource()
+  const manager = new PanelManager(state, presentation)
+  manager.activate()
+  equal(presentation.listeners.size, 1, 'One manager-owned presentation subscription')
+  let appUpdates = 0
+  let controlUpdates = 0
+  manager.appmenu.button = {}
+  manager.appmenu._syncState = () => appUpdates++
+  manager.windowButtons.controls = {}
+  manager.windowButtons._syncVisible = () => controlUpdates++
+  presentation.invalidate()
+  equal([appUpdates, controlUpdates], [1, 1], 'Both existing views refresh through the manager')
+  manager.appmenu.button = null
+  presentation.invalidate()
+  equal([appUpdates, controlUpdates], [1, 2], 'An inactive view has no presentation callback')
+  manager.destroy()
+  equal([presentation.listeners.size, state.settings.extension.listeners.size], [0, 0], 'Manager releases every observer')
+  equal(manager.windowManager, null, 'Manager releases its window provider')
+  presentation.invalidate()
+  equal([appUpdates, controlUpdates], [1, 2], 'Disabled manager has no callback')
+
+  const failedState = disabledContext()
+  const failedPresentation = new PresentationSource()
+  const failed = new PanelManager(failedState, failedPresentation)
+  failed.activate()
+  const originalDisconnect = failed.disconnectPresentation
+  const cleanupError = new Error('Injected presentation disconnect failure')
+  failed.disconnectPresentation = () => { originalDisconnect(); throw cleanupError }
+  let observed
+  try { failed.destroy() } catch (error) { observed = error }
+  assert(observed === cleanupError, 'Manager preserves its original cleanup error')
+  equal([failedPresentation.listeners.size, failedState.settings.extension.listeners.size], [0, 0],
+    'Independent feature cleanup still releases settings observers')
+  equal(failed.windowManager, null, 'Cleanup failure does not retain the window provider')
+  equal(failed.disconnectPresentation, null, 'Cleanup failure does not retain a release callback')
 })
 
 print(`${passed} panel contract scenarios passed; live Shell input/accessibility remains pending.`)

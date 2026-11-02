@@ -1,10 +1,10 @@
 import Gio from 'gi://Gio'
 import GLib from 'gi://GLib'
 import GObject from 'gi://GObject'
+import Gtk from 'gi://Gtk?version=4.0'
+import Adw from 'gi://Adw'
 import { adaptSettings, getPreferences, getInterface } from '../unite-next@lucastsudaka.github.io/convenience.js'
 import { bindChoice, enumChoices } from '../unite-next@lucastsudaka.github.io/preferences-bindings.js'
-import { WindowControlsTheme, WindowControlsThemes } from '../unite-next@lucastsudaka.github.io/theme.js'
-import { loadModule } from './load-module.js'
 
 if (GLib.getenv('GSETTINGS_BACKEND') !== 'memory') {
   throw new Error('Run this test with GSETTINGS_BACKEND=memory; real settings are never test fixtures')
@@ -43,14 +43,58 @@ function removeTree(path) {
   }
   file.delete(null)
 }
+function copyTree(source, target) {
+  if (source.query_file_type(Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, null) !== Gio.FileType.DIRECTORY) {
+    source.copy(target, Gio.FileCopyFlags.NONE, null, null)
+    return
+  }
+  target.make_directory_with_parents(null)
+  const children = source.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null)
+  try {
+    for (let info = children.next_file(null); info; info = children.next_file(null)) {
+      copyTree(source.get_child(info.get_name()), target.get_child(info.get_name()))
+    }
+  } finally {
+    children.close(null)
+  }
+}
+async function until(predicate, message) {
+  const deadline = GLib.get_monotonic_time() + 3000000
+  while (!predicate()) {
+    if (GLib.get_monotonic_time() >= deadline) throw new Error(`Timed out: ${message}`)
+    await new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, 10, () => {
+      resolve()
+      return GLib.SOURCE_REMOVE
+    }))
+  }
+  check(true, message)
+}
+
+// Import must remain inert even before an activation owner exists.
+const newFileForUri = Gio.File.new_for_uri
+let importFileAllocations = 0
+Gio.File.new_for_uri = (...args) => {
+  importFileAllocations++
+  return newFileForUri(...args)
+}
+let themeModule
+let preferencesModule
+try {
+  preferencesModule = await import('../unite-next@lucastsudaka.github.io/preferences-widget.js')
+  themeModule = await import('../unite-next@lucastsudaka.github.io/theme.js')
+} finally {
+  Gio.File.new_for_uri = newFileForUri
+}
+equal(importFileAllocations, 0, 'Theme/preferences import creates no Gio.File before activation')
+const { WindowControlsTheme, WindowControlsThemes } = themeModule
+const { UniteNextPreferencesWidget } = preferencesModule
 
 const root = Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_path()
 const temp = GLib.dir_make_tmp('unite-preferences-XXXXXX')
 const schemaDir = GLib.build_filenamev([temp, 'schemas'])
 const schemaId = 'org.gnome.shell.extensions.unite-next'
 const baseline = {
-  'extend-left-box': ['b', true], 'show-legacy-tray': ['b', true],
-  'greyscale-tray-icons': ['b', false], 'autofocus-windows': ['b', true],
+  'extend-left-box': ['b', true], 'autofocus-windows': ['b', true],
   'show-appmenu-button': ['b', true], 'use-activities-text': ['b', true],
   'show-desktop-name': ['b', true], 'desktop-name-text': ['s', 'GNOME Desktop'],
   'enable-titlebar-actions': ['b', true], 'restrict-to-primary-screen': ['b', true],
@@ -95,6 +139,11 @@ try {
   const settings = Gio.Settings.new_full(schema, backend, null)
   const writer = Gio.Settings.new_full(schema, backend, null)
   const adapter = adaptSettings(settings)
+  for (const key of ['show-legacy-tray', 'greyscale-tray-icons']) {
+    equal(schema.has_key(key), false, `Retired setting absent from the native schema: ${key}`)
+    equal(adapter.exists(key), false, `Retired setting has no runtime adapter alias: ${key}`)
+    equal(adapter.getSetting(key), undefined, `Retired setting has no compatibility value: ${key}`)
+  }
   const actualChoices = enumChoices(label => label)
   equal(Object.keys(actualChoices).sort(), Object.keys(choiceValues).sort(), 'Every actual enum row is covered')
   const expectedLabels = { never: 'Never', tiled: 'Tiled', maximized: 'Maximized', both: 'Both', always: 'Always', auto: 'Auto', center: 'Center', left: 'Left', right: 'Right', first: 'First', last: 'Last', start: 'Start', middle: 'Middle', end: 'End' }
@@ -102,15 +151,12 @@ try {
     equal(actualChoices[key], nicks.map(nick => [nick, expectedLabels[nick]]), `Actual stable IDs and labels ${key}`)
   }
 
-  const { UniteNextPreferencesWidget } = loadModule(`${root}/unite-next@lucastsudaka.github.io/prefs.js`, {
-    ExtensionPreferences: class {}
-  }, ['UniteNextPreferencesWidget'])
   const autoTheme = new WindowControlsTheme('auto', `${root}/unite-next@lucastsudaka.github.io/themes/default`)
   equal(autoTheme.valid, true, 'Asset-valid themes may carry the reserved auto UUID')
   let themeEntries = null
   UniteNextPreferencesWidget.prototype._bindThemes.call({
     _gettext: label => label,
-    _themes: { available: [
+    _themes: { watch() {}, available: [
       { uuid: 'custom-theme', name: 'Custom Theme' },
       { uuid: 'default', name: 'User Default' },
       autoTheme,
@@ -136,6 +182,159 @@ try {
   disposeModel()
   writer.reset('window-buttons-theme')
 
+  // Keep the actual Gtk.StringList and native theme discovery alive while the
+  // filesystem changes. Only the display-dependent row is a GObject fixture.
+  const liveRow = new Row()
+  let modelSignal = 0
+  liveRow.set_model = model => {
+    check(model instanceof Gtk.StringList, 'Live theme choices use the native GTK string model')
+    liveRow.model = model
+    modelSignal = model.connect('items-changed', () => { liveRow.selected = 0 })
+  }
+  const liveWarnings = []
+  const liveThemes = new WindowControlsThemes({ directories: [
+    `${root}/unite-next@lucastsudaka.github.io/themes`, `${temp}/live-themes`
+  ], warn: message => liveWarnings.push(message) })
+  const liveWidget = Object.create(UniteNextPreferencesWidget.prototype)
+  Object.assign(liveWidget, {
+    _gettext: label => label, _settings: settings, _themes: liveThemes, _bindings: [],
+    getWidget: () => liveRow
+  })
+  const installTheme = (id, name) => {
+    const path = `${temp}/live-themes/${id}`
+    copyTree(Gio.File.new_for_path(`${root}/unite-next@lucastsudaka.github.io/themes/default`),
+      Gio.File.new_for_path(path))
+    write(`${path}/unite.theme`, `[Theme]\nName=${name}\n[Dark]\nStyle=dark/stylesheet.css\n[Light]\nStyle=light/stylesheet.css\n`)
+  }
+  const selectedThemeLabel = () => liveRow.model.get_string(liveRow.selected)
+  const hasLabel = label => {
+    for (let index = 0; index < liveRow.model.get_n_items(); index++) {
+      if (liveRow.model.get_string(index) === label) return true
+    }
+    return false
+  }
+  const indexForLabel = label => {
+    for (let index = 0; index < liveRow.model.get_n_items(); index++) {
+      if (liveRow.model.get_string(index) === label) return index
+    }
+    throw new Error(`Missing live theme label ${label}`)
+  }
+  let liveWrites = 0
+  const liveSignal = settings.connect('changed::window-buttons-theme', () => liveWrites++)
+  try {
+    liveWidget._bindThemes()
+    equal(settings.get_user_value('window-buttons-theme'), null, 'Live model initialization makes no settings write')
+    equal(selectedThemeLabel(), 'Default', 'Live model initially selects the default')
+    installTheme('z-late', 'Late Theme')
+    await until(() => hasLabel('Late Theme'), 'An installed theme appears while preferences remain open without a settings change')
+    equal(selectedThemeLabel(), 'Default', 'Filesystem refresh preserves the current selection')
+    equal(liveWrites, 0, 'Theme installation introduces no settings write')
+    writer.set_string('window-buttons-theme', 'z-late')
+    equal(selectedThemeLabel(), 'Late Theme', 'An external late valid selection refreshes the open preferences model')
+    equal(settings.get_string('window-buttons-theme'), 'z-late', 'Late discovery preserves the selected stable ID')
+    equal(liveWrites, 1, 'Model replacement notifications do not accidentally write another ID')
+    installTheme('a-earlier', 'Earlier Theme')
+    await until(() => hasLabel('Earlier Theme'), 'Another installed theme updates the same open model')
+    equal(selectedThemeLabel(), 'Late Theme', 'Inserting an earlier theme does not change the selected stable ID')
+    writer.set_string('window-buttons-theme', 'a-earlier')
+    equal(selectedThemeLabel(), 'Earlier Theme', 'Discovery includes another newly installed theme')
+    liveRow.selected = indexForLabel('Late Theme')
+    equal(settings.get_string('window-buttons-theme'), 'z-late', 'Control selection uses the stable ID after model reordering')
+    equal(selectedThemeLabel(), 'Late Theme', 'Refresh retains the explicitly chosen theme')
+    equal(liveWrites, 3, 'Each explicit selection produces exactly one settings change')
+
+    removeTree(`${temp}/live-themes/z-late`)
+    await until(() => selectedThemeLabel() === 'Unavailable theme: z-late',
+      'Removing the selected theme updates availability without selecting another value')
+    equal(liveWrites, 3, 'Removing the selected theme introduces no settings write')
+    writer.set_string('window-buttons-theme', 'default')
+    writer.set_string('window-buttons-theme', 'z-late')
+    equal(selectedThemeLabel(), 'Unavailable theme: z-late', 'Removing a theme updates availability on an external selection')
+    equal(settings.get_string('window-buttons-theme'), 'z-late', 'Removed selection keeps its persisted ID')
+    installTheme('z-late', 'Restored Theme')
+    await until(() => selectedThemeLabel() === 'Restored Theme',
+      'Reinstalling the selected theme replaces its unavailable label without changing settings')
+    equal(liveWrites, 5, 'Restoring the selected theme introduces no settings write')
+    writer.set_string('window-buttons-theme', 'default')
+    writer.set_string('window-buttons-theme', 'z-late')
+    equal(selectedThemeLabel(), 'Restored Theme', 'Reinstalling a formerly unavailable theme replaces its stale label')
+    equal(liveRow.model.get_n_items(), 29, 'Refresh discards obsolete unavailable placeholders instead of accumulating duplicates')
+
+    const watchedAsset = `${temp}/live-themes/z-late/dark/close.svg`
+    Gio.File.new_for_path(watchedAsset).delete(null)
+    await until(() => selectedThemeLabel() === 'Unavailable theme: z-late',
+      'Removing a required nested asset makes the selected theme unavailable')
+    Gio.File.new_for_path(`${root}/unite-next@lucastsudaka.github.io/themes/default/dark/close.svg`)
+      .copy(Gio.File.new_for_path(watchedAsset), Gio.FileCopyFlags.NONE, null, null)
+    await until(() => selectedThemeLabel() === 'Restored Theme',
+      'Repairing an invalid selected theme is observed through its asset directory')
+    check(liveWarnings.some(message => message.includes('Missing close/default icon')),
+      'Invalid theme diagnostics remain visible during live discovery')
+    equal(liveWrites, 7, 'Asset availability changes preserve the persisted setting')
+
+    removeTree(`${temp}/live-themes/a-earlier`)
+    liveRow.selected = indexForLabel('Earlier Theme')
+    equal(settings.get_string('window-buttons-theme'), 'a-earlier', 'Selecting a stale removed entry preserves the requested ID')
+    equal(selectedThemeLabel(), 'Unavailable theme: a-earlier', 'Control selection rechecks a removed theme against the filesystem')
+    equal(liveWrites, 8, 'Removal and restoration refreshes introduce no accidental writes')
+    const lastLabel = selectedThemeLabel()
+    const lastWarnings = liveWarnings.length
+    liveWidget.destroy()
+    removeTree(`${temp}/live-themes/z-late`)
+    writer.set_string('window-buttons-theme', 'default')
+    await new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+      resolve()
+      return GLib.SOURCE_REMOVE
+    }))
+    equal(selectedThemeLabel(), lastLabel, 'Closed preferences retain no dynamic discovery or model binding')
+    equal(liveWarnings.length, lastWarnings, 'Closed preferences receive no filesystem callback or stale-owner error')
+  } finally {
+    liveWidget.destroy()
+    if (modelSignal) liveRow.model.disconnect(modelSignal)
+    settings.disconnect(liveSignal)
+    writer.reset('window-buttons-theme')
+  }
+
+  const reentrantThemes = new WindowControlsThemes({ directories: [
+    `${root}/unite-next@lucastsudaka.github.io/themes`, `${temp}/reentrant-themes`
+  ] })
+  const nativeNewForPath = Gio.File.new_for_path
+  const reentrantMonitors = []
+  let stopReentrant = null
+  let reentrantChanges = 0
+  try {
+    Gio.File.new_for_path = path => {
+      const file = nativeNewForPath(path)
+      const monitorDirectory = file.monitor_directory.bind(file)
+      file.monitor_directory = (...args) => {
+        const monitor = monitorDirectory(...args)
+        reentrantMonitors.push(monitor)
+        return monitor
+      }
+      return file
+    }
+    stopReentrant = reentrantThemes.watch(() => {
+      reentrantChanges++
+      reentrantThemes.update()
+      stopReentrant()
+    })
+    write(`${temp}/reentrant-themes/first-event`, 'Native filesystem event')
+    await until(() => reentrantChanges === 1, 'A native theme watcher can be disposed from inside its refresh callback')
+    check(reentrantMonitors.length > 0 && reentrantMonitors.every(monitor => monitor.is_cancelled()),
+      'Reentrant disposal leaves every native monitor cancelled')
+    const monitorCount = reentrantMonitors.length
+    write(`${temp}/reentrant-themes/later-event`, 'No disabled-owner callback')
+    await new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+      resolve()
+      return GLib.SOURCE_REMOVE
+    }))
+    equal(reentrantChanges, 1, 'Reentrant disposal leaves no pending or later refresh callback')
+    equal(reentrantMonitors.length, monitorCount, 'Refresh completion cannot reacquire monitors after disposal')
+  } finally {
+    if (stopReentrant) stopReentrant()
+    Gio.File.new_for_path = nativeNewForPath
+  }
+
   equal(schema.list_keys().sort(), Object.keys(baseline).sort(), 'REQ-FEATURE-001: baseline key inventory')
   for (const [key, [type, value]] of Object.entries(baseline)) {
     equal(schema.get_key(key).get_value_type().dup_string(), type, `Baseline type ${key}`)
@@ -144,13 +343,6 @@ try {
   }
   equal(adapter.exists('absent-key'), false, 'Unknown adapter key')
   equal(adapter.getSetting('absent-key'), undefined, 'Unknown adapter read')
-  equal(adapter.setSetting('absent-key', 1), false, 'Unknown adapter write')
-  for (const [key, value] of [['app-menu-max-width', 117], ['desktop-name-text', 'Custom'], ['extend-left-box', false]]) {
-    equal(adapter.setSetting(key, value), true, `Adapter setter ${key}`)
-    equal(settings.get_value(key).deepUnpack(), value, `Adapter native persistence ${key}`)
-    settings.reset(key)
-  }
-  throws(() => adapter.setSetting('show-window-buttons', 'invalid'), 'Reject out-of-range enum')
   let notifications = 0
   const adapterSignal = adapter.connect('changed::desktop-name-text', () => notifications++)
   writer.set_string('desktop-name-text', 'Changed')
@@ -175,6 +367,45 @@ try {
     equal(row[property], value, `Native external reset ${key}`)
     Gio.Settings.unbind(row, property)
     Gio.Settings.unbind(row, 'sensitive')
+  }
+
+  // Load the actual numeric UI object without constructing display-dependent widgets.
+  // REQ-PREF-001: every existing int32 value must remain visible and unchanged on bind.
+  const widthKey = 'app-menu-max-width'
+  const widthValues = [-2147483648, -5, -1, 0, 1000, 1001, 2000, 2147483647]
+  GObject.type_ensure(Adw.PreferencesPage.$gtype)
+  for (const initial of [null, ...widthValues]) {
+    if (initial === null) writer.reset(widthKey)
+    else writer.set_int(widthKey, initial)
+    const builder = new Gtk.Builder()
+    builder.add_objects_from_file(
+      `${root}/unite-next@lucastsudaka.github.io/settings.ui`, ['maxwidth_appmenu_adjustment']
+    )
+    const adjustment = builder.get_object('maxwidth_appmenu_adjustment')
+    let writes = 0
+    const handler = settings.connect(`changed::${widthKey}`, () => writes++)
+    try {
+      settings.bind(widthKey, adjustment, 'value', Gio.SettingsBindFlags.DEFAULT)
+      equal(adjustment.value, initial ?? 0, `Native width adjustment represents initial ${initial}`)
+      equal(settings.get_user_value(widthKey)?.deepUnpack() ?? null, initial,
+        `Native width binding preserves initial persisted ${initial}`)
+      equal(writes, 0, `Native width binding performs no initial write for ${initial}`)
+      for (const value of widthValues) {
+        writer.set_int(widthKey, value)
+        equal(adjustment.value, value, `Native width adjustment reflects external ${value}`)
+        equal(settings.get_int(widthKey), value, `Native width binding preserves external ${value}`)
+      }
+      for (const value of widthValues) {
+        adjustment.value = value
+        equal(settings.get_int(widthKey), value, `Native width adjustment persists control ${value}`)
+      }
+      writer.reset(widthKey)
+      equal(adjustment.value, 0, 'Native width adjustment reflects external reset')
+      equal(settings.get_user_value(widthKey), null, 'Native width reset preserves unset state')
+    } finally {
+      Gio.Settings.unbind(adjustment, 'value')
+      settings.disconnect(handler)
+    }
   }
 
   for (const [key, nicks] of Object.entries(choiceValues)) {
@@ -251,8 +482,8 @@ try {
   wm.set_string('button-layout', 'close,minimize:maximize')
   equal(preferences.getSetting('window-buttons-layout'), ['close', 'minimize', 'maximize'], 'Native ordered layout')
   equal(preferences.getSetting('window-buttons-position'), 'left', 'Native left placement')
-  equal(preferences.setSetting('button-layout', ':'), false, 'Preferences adapter cannot mutate system settings')
-  equal(getInterface().setSetting('gtk-theme', 'Invalid'), false, 'Interface adapter cannot mutate system settings')
+  const desktopInterface = new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' })
+  equal(getInterface().getSetting('gtk-theme'), desktopInterface.get_string('gtk-theme'), 'Interface adapter reads native settings')
 
   const bundled = `${root}/unite-next@lucastsudaka.github.io/themes`
   const warnings = []

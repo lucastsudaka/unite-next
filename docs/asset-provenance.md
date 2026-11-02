@@ -68,17 +68,16 @@ user's active desktop. Historical upstream screenshot fingerprints above remain
 source attribution when the fork replaces the public screenshots with these
 verified native captures.
 
-The current root PNGs were captured on 2026-10-30 in GNOME Shell 50.5 after the
-complete normal desktop journey passed. The desktop image includes the native
+The current root PNGs were captured on 2026-10-30 in GNOME Shell 50.5 after the audit corrections and the complete normal desktop journey passed. The desktop image includes the native
 GNOME performance-test client; the preferences image shows the installed fork.
 They illustrate the isolated acceptance session, with no user data or mockup.
 
 | Capture | Dimensions | SHA-256 |
 | --- | --- | --- |
-| `screenshot.png` | 2560 × 1440 | `9e75c6ff5a699b5dee6b7debc8e7c1a9348b645b1b6aca1f57b0d6fa41b950a8` |
-| `settings.png` | 670 × 710 | `6714e91ab90cd7f8168b288d375a5b8daf013adf6fdac76025681c544745e8ef` |
+| `screenshot.png` | 2560 × 1440 | `e93f63eced50305e1cd31b9bcc1cd8d78c03143f0ec97f8cbec390bc51675d96` |
+| `settings.png` | 670 × 710 | `36898386d2d827fab70ada8667f95ba4de288f800c2cec13a2ffd84d4e8d1683` |
 
-Capture input installation ZIP SHA-256: `6b2c80862e91a2b3c836c927b45e428b7cfbe80620cf91e6c85624fc4f092284`.
+Capture input installation ZIP SHA-256: `2969175dda52f7bb0093d8a61b4ef7c2228140c94cb7f5f41c2b9a984914c5f2`.
 This identifies the capture input; the final released CI artifact has its own
 accepted digest recorded in its release notes. The runtime payload is checked
 against its corresponding source independently of ZIP container timestamps.

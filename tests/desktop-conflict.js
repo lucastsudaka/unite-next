@@ -6,6 +6,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js'
 import { ExtensionState } from 'resource:///org/gnome/shell/misc/extensionUtils.js'
 
+export { init } from './desktop-startup.js'
+
 const UPSTREAM_UUID = 'unite@hardpixel.eu'
 const CONFLICT = `Unite Next cannot run while ${UPSTREAM_UUID} is active or activating`
 const CLEANUP_FAILURE = 'Injected native fork conflict cleanup failure'
@@ -56,13 +58,10 @@ function ownedStyles(owner) {
 }
 
 function resources(owner) {
-  const features = owner.panelManager.features.features
-  const actors = new Set(features.flatMap(feature =>
-    [feature.button, feature.controls, feature.label, feature.indicators].filter(Boolean)))
-  const slots = Object.entries(Main.panel.statusArea).filter(([, actor]) => actors.has(actor))
+  const slots = Object.entries(Main.panel.statusArea).filter(([name]) => name.startsWith('uniteNext'))
   assert(slots.length > 0 && ownedStyles(owner).length > 0, 'The conflict fixture did not acquire real panel/style effects')
   return { windows: owner.windowManager, observer: owner.conflictSignals, styles: owner.styles,
-    actions: features.flatMap(feature => feature.actions || []), slots }
+    actions: owner.panelManager.titlebarActions.actions || [], slots }
 }
 
 function released(owner, previous) {
@@ -135,9 +134,14 @@ export async function run() {
   const upstreamSettings = upstreamOwner.getSettings()
   upstreamSettings.set_string('desktop-name-text', 'Preserved upstream café')
   upstreamSettings.set_string('window-buttons-theme', 'upstream-conflict-only')
+  // The original schema is foreign data, including keys retired only in the fork.
+  upstreamSettings.set_boolean('show-legacy-tray', false)
+  upstreamSettings.set_boolean('greyscale-tray-icons', true)
+  const upstreamValues = new Map(upstreamSettings.settings_schema.list_keys()
+    .map(key => [key, upstreamSettings.get_value(key)]))
   const preserved = () => {
-    assert(upstreamSettings.get_string('desktop-name-text') === 'Preserved upstream café' &&
-      upstreamSettings.get_string('window-buttons-theme') === 'upstream-conflict-only', 'Fork changed upstream settings')
+    assert([...upstreamValues].every(([key, value]) => value.equal(upstreamSettings.get_value(key))),
+      'Fork changed foreign upstream settings, including its tray values')
     assert(themeSnapshot(theme) === originalTheme, 'Fork changed upstream user themes')
     assert(gtkFiles.every(file => decode(file.load_contents(null)[1]) === foreign), 'Fork cleanup changed foreign GTK bytes')
   }

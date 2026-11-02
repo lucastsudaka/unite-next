@@ -2,10 +2,6 @@ import GLib from 'gi://GLib'
 import Gio from 'gi://Gio'
 import * as Convenience from './convenience.js'
 
-const THEME_DIRS = [
-  GLib.build_filenamev([Convenience.getPath(), 'themes']),
-  GLib.build_filenamev([GLib.get_user_data_dir(), 'unite-next/themes'])
-]
 const ACTIONS = ['close', 'minimize', 'maximize']
 const STATES = ['default', 'hover', 'active']
 
@@ -30,6 +26,7 @@ export class WindowControlsTheme {
     this.keys = new GLib.KeyFile()
     this._gicons = new Map()
     this._iconPaths = new Map()
+    this._files = [GLib.build_filenamev([path, 'unite.theme'])]
     this.error = null
 
     try {
@@ -40,6 +37,7 @@ export class WindowControlsTheme {
       if (!this.name.trim()) throw new Error('Theme name is empty')
       this.dark = GLib.build_filenamev([path, this.keys.get_string('Dark', 'Style')])
       this.light = GLib.build_filenamev([path, this.keys.get_string('Light', 'Style')])
+      this._files.push(this.dark, this.light)
 
       const overrides = new Map()
       const allowed = new Set(ACTIONS.flatMap(action => [action, `${action}-hover`, `${action}-active`]))
@@ -67,6 +65,7 @@ export class WindowControlsTheme {
             const key = state === 'default' ? action : `${action}-${state}`
             const filename = overrides.get(key) || `${key}.svg`
             const icon = GLib.build_filenamev([directory, filename])
+            this._files.push(icon)
             if (!fileExists(icon)) throw new Error(`Missing ${action}/${state} icon ${icon}`)
             icons[action][state] = icon
           }
@@ -103,7 +102,13 @@ export class WindowControlsTheme {
 }
 
 export class WindowControlsThemes {
-  constructor({ directories = THEME_DIRS, warn = message => console.warn(message) } = {}) {
+  constructor({
+    directories = [
+      GLib.build_filenamev([Convenience.getPath(), 'themes']),
+      GLib.build_filenamev([GLib.get_user_data_dir(), 'unite-next/themes'])
+    ],
+    warn = message => console.warn(message)
+  } = {}) {
     this.themes = Object.create(null)
     this._directories = directories
     this._warn = warn
@@ -119,10 +124,6 @@ export class WindowControlsThemes {
   get default() {
     if (!this._bundledDefault) throw new Error('Bundled default window controls theme is missing or invalid')
     return this._bundledDefault
-  }
-
-  forEach(callback) {
-    this.available.forEach(callback)
   }
 
   get(name) {
@@ -148,10 +149,71 @@ export class WindowControlsThemes {
     return btnTheme === 'auto' ? this.match(gtkTheme) : this.get(btnTheme)
   }
 
+  watch(onChanged) {
+    let disposed = false
+    let pending = 0
+    let monitors = []
+    const cancel = entries => {
+      for (const [monitor, id] of entries) {
+        monitor.disconnect(id)
+        monitor.cancel()
+      }
+    }
+    const rebuild = () => {
+      const replacements = []
+      const watched = new Set()
+      try {
+        for (const path of this._watchDirectories) {
+          let directory = Gio.File.new_for_path(path)
+          // Missing user/theme/asset directories are watched through their
+          // closest existing parent, without creating user configuration.
+          while (directory && directory.query_file_type(Gio.FileQueryInfoFlags.NONE, null) !== Gio.FileType.DIRECTORY) {
+            directory = directory.get_parent()
+          }
+          if (!directory || watched.has(directory.get_uri())) continue
+          watched.add(directory.get_uri())
+          const monitor = directory.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null)
+          replacements.push([monitor, monitor.connect('changed', schedule)])
+        }
+      } catch (error) {
+        cancel(replacements)
+        throw error
+      }
+      cancel(monitors)
+      monitors = replacements
+    }
+    const schedule = () => {
+      if (disposed || pending) return
+      pending = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+        pending = 0
+        try {
+          onChanged()
+        } catch (error) {
+          this._warn(`Unable to refresh window controls themes: ${error.message}`)
+        } finally {
+          // Discovery may now name newly created asset directories or have
+          // moved back to an ancestor after a theme directory was removed.
+          if (!disposed) rebuild()
+        }
+        return GLib.SOURCE_REMOVE
+      })
+    }
+    rebuild()
+    return () => {
+      if (disposed) return
+      disposed = true
+      if (pending) GLib.source_remove(pending)
+      pending = 0
+      cancel(monitors)
+      monitors = []
+    }
+  }
+
   update() {
     this.themes = Object.create(null)
     this._bundledDefault = null
     this._missingTheme = null
+    this._watchDirectories = new Set(this._directories)
 
     this._directories.forEach((pathName, index) => {
       const path = Gio.File.new_for_path(pathName)
@@ -170,6 +232,7 @@ export class WindowControlsThemes {
 
           const uuid = info.get_name()
           const item = new WindowControlsTheme(uuid, GLib.build_filenamev([pathName, uuid]))
+          for (const path of item._files) this._watchDirectories.add(GLib.path_get_dirname(path))
           if (!item.valid) {
             this._warn(item.error)
             continue

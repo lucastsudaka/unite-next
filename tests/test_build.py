@@ -1,5 +1,6 @@
 """REQ-PACK-001/002 and REQ-I18N-001: real native tools, isolated source copies."""
 
+import ast
 import json
 import os
 from pathlib import Path
@@ -17,6 +18,32 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import build
 import translations
+
+
+def translated_catalog_entries(data):
+    """Read translated singular fixtures, keeping active and obsolete identities."""
+    entries = {}
+    for block in data.decode("utf-8").split("\n\n"):
+        fields = {}
+        section = None
+        obsolete = False
+        for line in block.splitlines():
+            if line.startswith("#~ "):
+                obsolete = True
+                line = line[3:]
+            if line.startswith("msgid "):
+                section = "id"
+                fields[section] = ast.literal_eval(line[6:])
+            elif line.startswith("msgstr "):
+                section = "value"
+                fields[section] = ast.literal_eval(line[7:])
+            elif line.startswith('"') and section:
+                fields[section] += ast.literal_eval(line)
+            else:
+                section = None
+        if fields.get("id") and fields.get("value"):
+            entries[obsolete, fields["id"]] = fields["value"]
+    return entries
 
 
 class PackageTests(unittest.TestCase):
@@ -73,6 +100,7 @@ class PackageTests(unittest.TestCase):
                              (self.root / build.EXTENSION / "metadata.json").read_bytes())
             self.assertEqual(len([name for name in names if name.endswith(".mo")]), 5)
             self.assertNotIn("schemas/gschemas.compiled", names)
+            self.assertFalse("animation.js" in names, "Obsolete GNOME 48 spinner workaround shipped")
             self.assertFalse(any(name.startswith(("tools/", ".agents/", "specs/"))
                                  for name in names))
 
@@ -87,6 +115,34 @@ class PackageTests(unittest.TestCase):
             self.assertTrue("NOTICE" in archive.namelist(), "Installation ZIP lacks NOTICE")
             self.assertEqual(archive.read("LICENSE"), license_bytes)
             self.assertEqual(archive.read("NOTICE"), notice_bytes)
+
+    def test_existing_archive_correspondence_never_rebuilds_accepted_bytes(self):
+        archive = build.package(self.root, self.output, "85")
+        original = archive.read_bytes()
+        result = build.verify_source_archive(self.root, archive)
+        self.assertEqual(result["uuid"], "unite-next@lucastsudaka.github.io")
+        self.assertEqual(result["version"], 85)
+        self.assertEqual(archive.read_bytes(), original)
+
+    def test_existing_archive_rejects_changed_source_without_modifying_it(self):
+        archive = build.package(self.root, self.output, "85")
+        original = archive.read_bytes()
+        (self.root / "NOTICE").write_text("Changed corresponding source notice.\n")
+        with self.assertRaisesRegex(ValueError, "Archive bytes differ.*NOTICE"):
+            build.verify_source_archive(self.root, archive)
+        self.assertEqual(archive.read_bytes(), original)
+
+    def test_existing_archive_rejects_changed_compiled_catalog(self):
+        archive = build.package(self.root, self.output, "85")
+        changed = self.output / "changed.zip"
+        with zipfile.ZipFile(archive) as source, zipfile.ZipFile(changed, "w") as destination:
+            for item in source.infolist():
+                data = source.read(item)
+                if item.filename == "locale/pt_BR/LC_MESSAGES/unite-next.mo":
+                    data += b"unexpected catalog bytes"
+                destination.writestr(item, data)
+        with self.assertRaisesRegex(ValueError, "Archive bytes differ.*unite-next.mo"):
+            build.verify_source_archive(self.root, changed)
 
     def test_missing_distribution_notice_fails_before_publication(self):
         (self.root / "NOTICE").unlink()
@@ -136,6 +192,58 @@ class PackageTests(unittest.TestCase):
         source = self.root / build.EXTENSION / "extension.js"
         source.write_bytes(source.read_bytes() + b"\n// Example: from './not-an-import.js'\n")
         build.check(self.root)
+
+    def test_shell_rejects_transitive_gtk_import_before_publication(self):
+        source = self.root / build.EXTENSION
+        (source / "extension.js").write_bytes(
+            (source / "extension.js").read_bytes() + b"\nimport './wrong-process.js'\n")
+        (source / "wrong-process.js").write_text("import Gtk from 'gi://Gtk?version=4.0'\n")
+        with self.assertRaisesRegex(ValueError, "extension.js.*Gtk"):
+            build.package(self.root, self.output)
+        self.assert_preserved()
+
+    def test_preferences_rejects_transitive_shell_reexport(self):
+        source = self.root / build.EXTENSION
+        (source / "prefs.js").write_bytes(
+            (source / "prefs.js").read_bytes() + b"\nexport * from './wrong-process.js'\n")
+        (source / "wrong-process.js").write_text("import St from 'gi://St'\n")
+        with self.assertRaisesRegex(ValueError, "prefs.js.*St"):
+            build.package(self.root, self.output)
+        self.assert_preserved()
+
+    def test_preferences_rejects_shell_resource_import(self):
+        source = self.root / build.EXTENSION / "prefs.js"
+        source.write_bytes(source.read_bytes() +
+                          b"\nimport * as Main from 'resource:///org/gnome/shell/ui/main.js'\n")
+        with self.assertRaisesRegex(ValueError, "prefs.js.*resource:"):
+            build.package(self.root, self.output)
+        self.assert_preserved()
+
+    def test_native_multiline_imports_and_shared_module_cycles_are_valid(self):
+        source = self.root / build.EXTENSION
+        (source / "prefs.js").write_bytes((source / "prefs.js").read_bytes() +
+                                          b"\nimport {\n  value\n} from './shared-a.js'\n")
+        (source / "shared-a.js").write_text(
+            "import Gio from 'gi://Gio'\nimport './shared-b.js'\nexport const value = 1\n")
+        (source / "shared-b.js").write_text("export * from './shared-a.js'\n")
+        build.check(self.root)
+
+    def test_isolated_factory_rejects_native_ui_import_allowed_in_shell(self):
+        source = self.root / build.EXTENSION / "extension-lifecycle.js"
+        source.write_bytes(source.read_bytes() + b"\nimport St from 'gi://St'\n")
+        with self.assertRaisesRegex(ValueError, "extension-lifecycle.js.*St"):
+            build.package(self.root, self.output)
+        self.assert_preserved()
+
+    def test_isolated_policy_rejects_transitive_native_resource(self):
+        source = self.root / build.EXTENSION
+        policy = source / "window-policy.js"
+        policy.write_bytes(policy.read_bytes() + b"\nexport * from './wrong-process.js'\n")
+        (source / "wrong-process.js").write_text(
+            "import * as Main from 'resource:///org/gnome/shell/ui/main.js'\n")
+        with self.assertRaisesRegex(ValueError, "window-policy.js.*resource:"):
+            build.package(self.root, self.output)
+        self.assert_preserved()
 
     def test_invalid_schema_fails_strict_native_validation(self):
         source = self.root / build.EXTENSION / "schemas/org.gnome.shell.extensions.unite-next.gschema.xml"
@@ -231,36 +339,92 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(pot.read_bytes(), original)
         self.assertEqual({str(path.relative_to(self.root)) for path in self.root.rglob("*")}, before)
 
-    def test_catalog_merge_preserves_existing_translation(self):
-        import ast
+    def assert_translations_preserved(self, before, after):
+        expected = translated_catalog_entries(before)
+        actual = translated_catalog_entries(after)
+        self.assertTrue(expected)
+        for identity, value in expected.items():
+            self.assertIn(identity, actual, f"Lost translated entry: {identity}")
+            self.assertEqual(actual[identity], value, f"Changed translation: {identity}")
 
-        def translations_in(path):
-            pairs = {}
-            message = value = ""
-            section = None
-            for line in path.read_text(encoding="utf-8").splitlines() + [""]:
-                if line.startswith("msgid "):
-                    message = ast.literal_eval(line[6:])
-                    section = "id"
-                elif line.startswith("msgstr "):
-                    value = ast.literal_eval(line[7:])
-                    section = "value"
-                elif line.startswith('"') and section:
-                    if section == "id":
-                        message += ast.literal_eval(line)
+    def test_catalog_merge_preserves_all_existing_translations(self):
+        for language in ("cs", "fr", "ko", "nl", "pt_BR"):
+            with self.subTest(locale=language):
+                self.assert_translations_preserved(
+                    (ROOT / f"translations/{language}.po").read_bytes(),
+                    (self.root / f"translations/{language}.po").read_bytes())
+
+    def test_preservation_check_detects_a_lost_active_or_obsolete_translation_in_every_locale(self):
+        for language in ("cs", "fr", "ko", "nl", "pt_BR"):
+            original = (self.root / f"translations/{language}.po").read_bytes()
+            entries = translated_catalog_entries(original)
+            for obsolete, message in ((False, "Close"), (True, "Extend top bar left box")):
+                with self.subTest(locale=language, obsolete=obsolete):
+                    prefix = "#~ " if obsolete else ""
+                    previous = (f'{prefix}msgid {json.dumps(message)}\n'
+                                f'{prefix}msgstr {json.dumps(entries[obsolete, message], ensure_ascii=False)}')
+                    missing = f'{prefix}msgid {json.dumps(message)}\n{prefix}msgstr ""'
+                    damaged = original.replace(previous.encode(), missing.encode(), 1)
+                    self.assertNotEqual(damaged, original, "Loss fixture did not remove its translation")
+                    with self.assertRaisesRegex(AssertionError, "Lost translated entry"):
+                        self.assert_translations_preserved(original, damaged)
+
+    def test_equivalent_renamed_messages_reuse_only_existing_human_translations(self):
+        renamed = {
+            "Extend top bar left box": "Extend top panel left box",
+            "Show desktop name in top bar": "Show desktop name label in top panel",
+            "Enable titlebar actions on top bar click": "Enable titlebar actions on top panel click",
+            "Show window title in app menu": "Show window title in top panel appmenu",
+            "Show window buttons in top bar": "Show window buttons in top panel",
+            "Notification messages position": "System notification messages position",
+            "Hide app menu application icon": "Hide application icon in appmenu button",
+            "Reduce top bar items spacing": "Reduce top panel icons and buttons spacing",
+            "Top bar desktop name text": "Desktop name label",
+            "Max width for the app menu": "Maximum width for the appmenu button label",
+            "Ellipsis mode for app menu": "Text ellipsis mode for appmenu button label",
+            "Top bar window buttons position": "Window buttons position in top panel",
+            "Top bar window buttons theme": "Top panel window buttons theme",
+        }
+        before = {}
+        for catalog in sorted((self.root / "translations").glob("*.po")):
+            # Retain real historical translations/provenance, with no active aliases.
+            historical = translations.run(
+                ["msgattrib", "--only-obsolete", "--no-wrap", str(catalog)], cwd=self.root)
+            catalog.write_bytes(historical)
+            before[catalog] = historical
+        outputs = translations.generated(self.root)
+        recovered = 0
+        for catalog, historical in before.items():
+            with self.subTest(locale=catalog.stem):
+                self.assert_translations_preserved(historical, outputs[catalog])
+                old = translated_catalog_entries(historical)
+                current = translated_catalog_entries(outputs[catalog])
+                for previous, message in renamed.items():
+                    if (True, previous) in old:
+                        self.assertEqual(current.get((False, message)), old[True, previous], message)
+                        recovered += 1
                     else:
-                        value += ast.literal_eval(line)
-                else:
-                    if section == "value" and message and value:
-                        pairs[message] = value
-                    section = None
-            return pairs
+                        self.assertNotIn((False, message), current, "An untranslated label gained invented text")
+                for message in ("Unavailable theme", "Hide workspace switcher button",
+                                "Limit window actions and panel controls to the primary screen, including Always"):
+                    self.assertNotIn((False, message), current, "Different/new behavior must retain explicit fallback")
+        self.assertEqual(recovered, 59)
 
-        before = translations_in(ROOT / "translations/pt_BR.po")
-        after = translations_in(self.root / "translations/pt_BR.po")
-        self.assertTrue(after)
-        for message, value in after.items():
-            self.assertEqual(value, before[message])
+    def test_equivalent_message_recovery_keeps_an_existing_active_translation(self):
+        message = "Extend top panel left box"
+        for catalog in sorted((self.root / "translations").glob("*.po")):
+            historical = translations.run(
+                ["msgattrib", "--only-obsolete", "--no-wrap", str(catalog)], cwd=self.root)
+            catalog.write_bytes(historical +
+                f'\nmsgid "{message}"\nmsgstr "Current translation fixture"\n'.encode())
+        outputs = translations.generated(self.root)
+        for catalog in sorted((self.root / "translations").glob("*.po")):
+            with self.subTest(locale=catalog.stem):
+                self.assertEqual(translated_catalog_entries(outputs[catalog])[False, message],
+                                 "Current translation fixture")
+        for path, data in outputs.items():
+            path.write_bytes(data)
+        translations.check(self.root)
 
 
 class ArchiveValidationTests(unittest.TestCase):

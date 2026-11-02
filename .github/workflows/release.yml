@@ -49,7 +49,7 @@ jobs:
 
     steps:
       - name: Install native build tools
-        run: dnf install --assumeyes --setopt=install_weak_deps=False git python3 gnome-shell gjs gettext glib2 dbus-daemon
+        run: dnf install --assumeyes --setopt=install_weak_deps=False git python3 gnome-shell gjs gettext glib2 dbus-daemon gtk4 libadwaita
 
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -64,63 +64,7 @@ jobs:
           ACCEPTED_RUN_ID: ${{ inputs.accepted_run_id }}
           ACCEPTED_ARTIFACT_ID: ${{ inputs.accepted_artifact_id }}
           ACCEPTED_SHA256: ${{ inputs.accepted_sha256 }}
-        run: |
-          /usr/bin/python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          import re
-          import subprocess
-          import sys
-          import urllib.request
-
-          sys.path.insert(0, "tools")
-          import build
-
-          repository = "lucastsudaka/unite-next"
-          commit = os.environ["REVIEWED_COMMIT"]
-          if (os.environ["GITHUB_REPOSITORY"] != repository or
-                  os.environ["GITHUB_REF"] != "refs/heads/master" or
-                  not re.fullmatch(r"[0-9a-f]{40}", commit) or commit != os.environ["GITHUB_SHA"] or
-                  subprocess.check_output(["git", "-c", f"safe.directory={Path.cwd()}", "rev-parse", "HEAD"], text=True).strip() != commit):
-              raise ValueError("Dispatch must select the exact reviewed master commit")
-          for name in ("ACCEPTED_RUN_ID", "ACCEPTED_ARTIFACT_ID"):
-              if not re.fullmatch(r"[1-9][0-9]*", os.environ[name]):
-                  raise ValueError(f"Invalid {name}")
-          if not re.fullmatch(r"[0-9a-f]{64}", os.environ["ACCEPTED_SHA256"]):
-              raise ValueError("Invalid accepted ZIP SHA-256")
-          metadata = build.identity(version=os.environ["REQUESTED_VERSION"])
-          if (metadata["uuid"] != "unite-next@lucastsudaka.github.io" or
-                  metadata["url"] != "https://github.com/" + repository):
-              raise ValueError("Unexpected repository or extension identity")
-
-          def get(path):
-              request = urllib.request.Request("https://api.github.com/repos/" + repository + path,
-                  headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"],
-                           "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2026-03-10"})
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  return json.load(response)
-
-          repo = get("")
-          if (repo.get("private") is not True or repo.get("fork") is not False or
-                  repo.get("full_name") != repository or repo.get("default_branch") != "master"):
-              raise ValueError("Delivery must be the selected private independent repository on master")
-          run = get("/actions/runs/" + os.environ["ACCEPTED_RUN_ID"])
-          artifact = get("/actions/artifacts/" + os.environ["ACCEPTED_ARTIFACT_ID"])
-          if (run.get("status") != "completed" or run.get("conclusion") != "success" or
-                  run.get("event") != "push" or run.get("head_branch") != "master" or
-                  run.get("head_sha") != commit or
-                  run.get("path", "").split("@", 1)[0] != ".github/workflows/build.yml" or
-                  run.get("repository", {}).get("full_name") != repository or
-                  run.get("head_repository", {}).get("full_name") != repository or
-                  artifact.get("id") != int(os.environ["ACCEPTED_ARTIFACT_ID"]) or
-                  artifact.get("name") != "unite-next-native-candidate" or artifact.get("expired") is not False or
-                  artifact.get("workflow_run", {}).get("id") != int(os.environ["ACCEPTED_RUN_ID"]) or
-                  artifact.get("workflow_run", {}).get("head_sha") != commit):
-              raise ValueError("Accepted artifact does not originate in the successful reviewed master build")
-          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
-              output.write(f"version={metadata['version']}\nuuid={metadata['uuid']}\n")
-          PY
+        run: /usr/bin/python3 tools/candidate.py verify-origin
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -133,7 +77,6 @@ jobs:
 
       - name: Exercise native source and failure scenarios
         run: |
-          mkdir -p /tmp/.X11-unix
           /usr/bin/python3 -m unittest discover -s tests -p 'test_*.py' -v
           /usr/bin/python3 tools/test-runtime.py
 
@@ -145,51 +88,7 @@ jobs:
       - name: Verify accepted bytes against their digest and complete source payload
         env:
           ACCEPTED_SHA256: ${{ inputs.accepted_sha256 }}
-        run: |
-          /usr/bin/python3 - <<'PY'
-          import hashlib
-          import json
-          import os
-          from pathlib import Path
-          import shutil
-          import sys
-          import zipfile
-
-          sys.path.insert(0, "tools")
-          import build
-
-          metadata = build.identity()
-          filename = f"unite-next-v{metadata['version']}.zip"
-          accepted = Path("accepted")
-          expected_names = {filename, filename + ".sha256", "candidate.json"}
-          if ({path.name for path in accepted.iterdir()} != expected_names or
-                  any(path.is_symlink() or not path.is_file() for path in accepted.iterdir())):
-              raise ValueError("Unexpected accepted artifact contents")
-          archive = accepted / filename
-          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
-          expected = {"repository": os.environ["GITHUB_REPOSITORY"],
-                      "source_commit": os.environ["GITHUB_SHA"], "uuid": metadata["uuid"],
-                      "version": metadata["version"], "archive": filename, "sha256": digest}
-          if (digest != os.environ["ACCEPTED_SHA256"] or
-                  json.loads((accepted / "candidate.json").read_text(encoding="utf-8")) != expected or
-                  (accepted / (filename + ".sha256")).read_text(encoding="utf-8") != f"{digest}  {filename}\n"):
-              raise ValueError("Accepted artifact digest, source manifest or checksum differs")
-          with zipfile.ZipFile(Path("build") / filename) as reference:
-              payload = {item.filename: reference.read(item) for item in reference.infolist() if not item.is_dir()}
-              modes = {item.filename: item.external_attr >> 16 for item in reference.infolist() if not item.is_dir()}
-          build.validate_archive(archive, payload)
-          with zipfile.ZipFile(archive) as original:
-              if {item.filename: item.external_attr >> 16 for item in original.infolist()
-                      if not item.is_dir()} != modes:
-                  raise ValueError("Accepted ZIP file modes differ from the source payload")
-          transfer = Path("build/accepted-release")
-          transfer.mkdir()
-          for name in expected_names:
-              shutil.copyfile(accepted / name, transfer / name)
-          if (transfer / filename).read_bytes() != archive.read_bytes():
-              raise ValueError("Accepted ZIP changed during transfer preparation")
-          print(f"Unchanged accepted ZIP verified: {filename}; SHA-256: {digest}")
-          PY
+        run: /usr/bin/python3 tools/candidate.py verify-payload
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         id: transfer

@@ -5,6 +5,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js'
 import * as Config from 'resource:///org/gnome/shell/misc/config.js'
 
+export { init } from './desktop-startup.js'
+
 export const METRICS = {}
 const UUID = 'unite-next@lucastsudaka.github.io'
 function assert(condition, message) { if (!condition) throw new Error(message) }

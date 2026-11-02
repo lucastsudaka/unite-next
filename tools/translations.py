@@ -15,6 +15,23 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 DOMAIN = "unite-next"
 PROVENANCE_DATE = "1970-01-01 00:00+0000"
+# Reviewed equivalent labels for retained settings, never new behavior text.
+# The historical entries remain in each catalog with their original provenance.
+RENAMED_MESSAGES = {
+    "Extend top bar left box": "Extend top panel left box",
+    "Show desktop name in top bar": "Show desktop name label in top panel",
+    "Enable titlebar actions on top bar click": "Enable titlebar actions on top panel click",
+    "Show window title in app menu": "Show window title in top panel appmenu",
+    "Show window buttons in top bar": "Show window buttons in top panel",
+    "Notification messages position": "System notification messages position",
+    "Hide app menu application icon": "Hide application icon in appmenu button",
+    "Reduce top bar items spacing": "Reduce top panel icons and buttons spacing",
+    "Top bar desktop name text": "Desktop name label",
+    "Max width for the app menu": "Maximum width for the appmenu button label",
+    "Ellipsis mode for app menu": "Text ellipsis mode for appmenu button label",
+    "Top bar window buttons position": "Window buttons position in top panel",
+    "Top bar window buttons theme": "Top panel window buttons theme",
+}
 
 
 def run(argv, *, cwd, data=None):
@@ -79,16 +96,36 @@ def template(root=ROOT):
     return output
 
 
+def equivalent_translations(root, catalog):
+    """Build a native compendium from explicitly matched historical translations."""
+    historical = run(
+        ["msgattrib", "--only-obsolete", "--clear-obsolete", "--translated", "--no-fuzzy",
+         "--no-wrap", str(catalog.relative_to(root))], cwd=root)
+    pattern = "^(" + "|".join(re.escape(message) for message in RENAMED_MESSAGES) + ")$"
+    selected = run(
+        ["msggrep", "--msgid", "--extended-regexp", f"--regexp={pattern}",
+         "--no-wrap", "--output-file=-", "-"], cwd=root, data=historical)
+    for previous, current in RENAMED_MESSAGES.items():
+        # --no-wrap emits these finite singular IDs on one line. Only the ID is
+        # renamed; msgstr bytes and translator comments are native gettext data.
+        selected = re.sub(rb'^msgid "' + re.escape(previous.encode()) + rb'"$',
+                          f'msgid "{current}"'.encode(), selected, flags=re.MULTILINE)
+    return selected
+
+
 def generated(root=ROOT):
     """Return outputs without writing; old msgstr values remain native merge inputs."""
     pot = template(root)
     outputs = {root / "unite-next.pot": pot}
-    for catalog in sorted((root / "translations").glob("*.po")):
-        merged = run(["msgmerge", "--no-fuzzy-matching", "--previous", "--no-wrap",
-                      "--output-file=-", str(catalog.relative_to(root)), "-"],
-                     cwd=root, data=pot)
-        run(["msgfmt", "--check", "--output-file=/dev/null", "-"], cwd=root, data=merged)
-        outputs[catalog] = merged
+    with tempfile.TemporaryDirectory(prefix="unite-compendium-") as temporary:
+        compendium = Path(temporary) / "equivalent.po"
+        for catalog in sorted((root / "translations").glob("*.po")):
+            compendium.write_bytes(equivalent_translations(root, catalog))
+            merged = run(["msgmerge", "--no-fuzzy-matching", "--previous", "--no-wrap",
+                          f"--compendium={compendium}", "--output-file=-",
+                          str(catalog.relative_to(root)), "-"], cwd=root, data=pot)
+            run(["msgfmt", "--check", "--output-file=/dev/null", "-"], cwd=root, data=merged)
+            outputs[catalog] = merged
     if len(outputs) != 6:
         raise ValueError("Expected five supplied translation catalogs")
     return outputs

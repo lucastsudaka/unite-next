@@ -11,6 +11,23 @@ resource ownership fixes, native preferences, build and verification tools, and
 an independent installation and settings identity. These modifications do not
 imply endorsement by the upstream project or the projects credited below.
 
+Modification notice — 2026-10-30
+System tray hosting and its settings were removed. Notification positioning,
+GTK application styling and XWayland decoration handling remain supported.
+Subsequent corrections isolate control-theme CSS, unify control eligibility,
+restore native notification sizing, refresh selected user themes and define
+primary-monitor precedence with safe GTK styling behavior.
+Accessible window-action translations follow the GNOME Shell 51.0 and GTK
+4.24.0 language catalogs, retaining their contributors' credit:
+https://gitlab.gnome.org/GNOME/gnome-shell/-/tree/51.0/po
+https://gitlab.gnome.org/GNOME/gtk/-/tree/4.24.0/po
+
+Modification notice — 2026-11-02
+GTK stylesheet updates retain displaced files for recovery from concurrent
+edits, and imported paths are escaped. Window effects follow maximization and
+primary-monitor changes; open preferences track theme availability. Regression
+and native desktop scenarios cover these transitions and resource cleanup.
+
 The project retains the GNU General Public License version 3 in LICENSE.
 Existing source copyright notices and translator credits remain applicable.
 Translation authors and language teams are credited in translations/*.po in the

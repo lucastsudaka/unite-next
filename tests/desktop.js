@@ -5,6 +5,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js'
 import * as Config from 'resource:///org/gnome/shell/misc/config.js'
 
+export { init } from './desktop-startup.js'
+
 export const METRICS = {}
 const UUID = 'unite-next@lucastsudaka.github.io'
 function assert(value, message) { if (!value) throw new Error(message) }
@@ -19,12 +21,40 @@ async function until(predicate, description, milliseconds = 10000) {
 
 export async function run() {
   assert(GLib.getenv('UNITE_PRIVATE_TEST') === '1', 'Private test state required')
+  assert(GLib.get_tmp_dir() === `${GLib.get_home_dir()}/tmp`,
+    'Native temporary files require the private session directory')
   await until(() => Main.extensionManager.lookup(UUID)?.stateObj?.context ||
     Main.extensionManager.lookup(UUID)?.error, 'initial extension activation')
   const extension = Main.extensionManager.lookup(UUID)
   assert(extension?.stateObj?.context, `Initial activation failed: ${extension?.error}`)
   const owner = extension.stateObj
   const settings = owner.getSettings()
+  const retiredKeys = ['show-legacy-tray', 'greyscale-tray-icons']
+  const removalPhases = []
+  const buttonsModule = await import(owner.dir.get_child('buttons.js').get_uri())
+  const panelModule = await import(owner.dir.get_child('panel.js').get_uri())
+  assert(!('TrayIndicator' in buttonsModule) && !('TrayIcons' in panelModule),
+    'Retired system tray exports remain available')
+  const assertSystemTrayAbsent = phase => {
+    const keys = settings.settings_schema.list_keys()
+    assert(retiredKeys.every(key => !keys.includes(key)), `${phase}: retired schema keys remain available`)
+    assert(!Main.panel.statusArea.uniteNextTrayIndicator, `${phase}: retired panel indicator remains registered`)
+    if (owner.context) {
+      assert(owner.panelManager, `${phase}: active panel owner is absent`)
+    } else {
+      assert(!owner.panelManager, `${phase}: disabled panel manager remains owned`)
+    }
+    // Read only the disposable runner fixture. The product must never read or
+    // rewrite these unknown values, including during retained-setting changes.
+    const stored = new GLib.KeyFile()
+    stored.load_from_file(`${GLib.get_user_config_dir()}/glib-2.0/settings/keyfile`, GLib.KeyFileFlags.NONE)
+    for (const [key, value] of [['show-legacy-tray', 'true'], ['greyscale-tray-icons', 'false']]) {
+      assert(stored.get_value('org/gnome/shell/extensions/unite-next', key) === value,
+        `${phase}: retired stored value ${key} changed`)
+    }
+    removalPhases.push(phase)
+  }
+  assertSystemTrayAbsent('initial activation')
   const wm = new Gio.Settings({ schema_id: 'org.gnome.desktop.wm.preferences' })
   Main.overview.hide()
   await until(() => !Main.overview.visibleTarget, 'overview hidden')
@@ -39,6 +69,7 @@ export async function run() {
     }
     settings.reset(key)
   }
+  assertSystemTrayAbsent('retained setting changes')
   for (const placement of ['auto', 'left', 'right', 'first', 'last']) {
     wm.set_string('button-layout', ':')
     settings.set_string('window-buttons-placement', placement)
@@ -110,27 +141,36 @@ export async function run() {
   await until(() => win.maximized_horizontally && win.maximized_vertically, 'maximize action')
 
   const source = Gio.File.new_for_path(GLib.getenv('UNITE_TEST_SOURCE'))
+  const { runCorrections } = await import(source.get_child('tests/desktop-corrections.js').get_uri())
+  const corrections = await runCorrections(owner, settings, win)
+
+  const { runSpinner } = await import(source.get_child('tests/desktop-spinner.js').get_uri())
+  const spinner = await runSpinner(owner)
   const { runX11 } = await import(source.get_child('tests/desktop-x11.js').get_uri())
   await runX11(owner, settings)
   Main.activateWindow(win)
   await until(() => owner.context.focusWindow?.win === win, 'Wayland focus restored')
   const { runInput } = await import(source.get_child('tests/desktop-input.js').get_uri())
   const input = await runInput(owner, settings, wm, win)
+  assert(input.scenarios.length === 11, 'Incomplete native input and secondary-monitor policy acceptance')
 
   const { runPreferences } = await import(source.get_child('tests/desktop-preferences.js').get_uri())
   await runPreferences(owner)
+  assertSystemTrayAbsent('native preferences')
   if (GLib.getenv('UNITE_SCREENSHOTS_DIR')) {
     const { runScreenshots } = await import(source.get_child('tests/desktop-screenshots.js').get_uri())
     await runScreenshots(owner, win)
   }
   const { runCapabilities } = await import(source.get_child('tests/desktop-capabilities.js').get_uri())
   const capabilities = await runCapabilities(owner, settings)
-  assert(capabilities.scenarios.length === 6, 'Incomplete GTK/tray capability acceptance')
+  assert(capabilities.scenarios.length === 5, 'Incomplete GTK capability acceptance')
+  assertSystemTrayAbsent('GTK disable and re-enable')
   Main.activateWindow(win)
   await until(() => owner.context.focusWindow?.win === win, 'Wayland focus restored after toolkit clients')
   const { runMonitors } = await import(source.get_child('tests/desktop-monitors.js').get_uri())
   const monitors = await runMonitors(owner, settings, wm, win)
-  assert(monitors.pending.length === 0 && monitors.scenarios.length === 2,
+  assert(monitors.pending.length === 0 && monitors.stateTransitions.length === 2 && monitors.scenarios.length === 2 &&
+    monitors.scenarios.every(scenario => scenario.input.length === 11),
     `Incomplete monitor acceptance: ${JSON.stringify(monitors)}`)
 
   for (let cycle = 0; cycle < 3; cycle++) {
@@ -142,19 +182,25 @@ export async function run() {
     assert(!Main.panel.statusArea.uniteNextWindowControls && !Main.panel.statusArea.uniteNextAppMenu,
       'Disabled actors remain registered')
     assert(!Main.panel.get_action('unite-next-titlebar-1'), 'Disabled gesture remains attached')
+    assertSystemTrayAbsent(`disabled cycle ${cycle}`)
     Main.extensionManager.enableExtension(UUID)
     await until(() => owner.context, 'extension re-enabled')
     await Scripting.waitLeisure()
     assert(!(extension.errors?.length), `Cycle ${cycle} produced errors`)
+    assertSystemTrayAbsent(`enabled cycle ${cycle}`)
   }
   const { runFailureCleanup } = await import(source.get_child('tests/desktop-failures.js').get_uri())
   await runFailureCleanup(owner)
+  assertSystemTrayAbsent('failure cleanup and recovery')
   await Scripting.destroyTestWindows()
   Main.extensionManager.disableExtension(UUID)
   await until(() => !owner.context, 'final extension teardown')
+  assertSystemTrayAbsent('final teardown')
   print(`UNITE_DESKTOP_PASS ${JSON.stringify({ shell: Config.PACKAGE_VERSION,
     monitors: Main.layoutManager.monitors.map(({ x, y, width, height }) => ({ x, y, width, height })),
-    input: input.scenarios, monitorScenarios: monitors.scenarios, capabilities,
+    input: input.scenarios, monitorScenarios: monitors.scenarios, windowStateScenarios: monitors.stateTransitions,
+    capabilities, spinner, corrections,
+    systemTrayRemoval: { phases: removalPhases, retiredKeysAbsent: true, staleStoredValuesPreserved: true },
     scenarios: ['settings toggles', 'empty layouts', 'theme rendering modes', 'accessible controls',
       'Wayland window title/maximize', 'three lifecycle cycles', 'failure cleanup and recovery'] })}`)
 }

@@ -2,9 +2,12 @@ import GObject from 'gi://GObject'
 import Shell from 'gi://Shell'
 import Meta from 'gi://Meta'
 import Gio from 'gi://Gio'
-import * as Main from 'resource:///org/gnome/shell/ui/main.js'
-import * as Handlers from './handlers.js'
+import { Signals, Timeouts, runCleanup } from './resources.js'
+import { Settings } from './settings.js'
+import { Styles } from './styles.js'
 import * as Convenience from './convenience.js'
+import { ClientDecorations, ServerDecorations } from './decorations.js'
+import { windowPolicyApplies } from './window-policy.js'
 
 const VALID_TYPES = [
   Meta.WindowType.NORMAL,
@@ -37,94 +40,20 @@ function motifRequest(request) {
   return JSON.parse(output)
 }
 
-class ClientDecorations {
-  show() {
-    return false
-  }
-
-  hide() {
-    return false
-  }
-
-  reset() {
-    return false
-  }
-}
-
-class ServerDecorations {
-  constructor({ xid, win }) {
-    this.xid = xid
-    this.win = win
-    this.owned = null
-    this.conflicted = false
-  }
-
-  get decorated() {
-    return this.win.get_frame_type() !== Meta.FrameType.BORDER
-  }
-
-  get handle() {
-    return this.win.decorated
-  }
-
-  show() {
-    this.reset()
-  }
-
-  hide() {
-    if (!this.handle || !this.decorated || this.owned || this.conflicted) return
-    const result = motifRequest({ operation: 'read', xid: this.xid })
-    const original = result.value
-    // Type atoms are server-local and remain valid for this window's lifetime.
-    const value = original ? { ...original, data: [...original.data] } :
-      { type: result.type, format: 32, data: [2, 0, 2, 0, 0] }
-    this.owned = { original, value }
-    if (original) {
-      value.data[0] = (value.data[0] | 2) >>> 0
-      value.data[2] = 2
-    }
-    try {
-      const applied = motifRequest({ operation: 'replace', xid: this.xid,
-        expected: original, value: this.owned.value })
-      if (!applied.changed) this.owned = null
-    } catch (error) {
-      if (error.message.includes('Ownership conflict:')) {
-        this.owned = null
-        this.conflicted = true
-      }
-      throw error
-    }
-  }
-
-  reset() {
-    if (!this.owned) return
-    const { original, value } = this.owned
-    try {
-      motifRequest({ operation: 'replace', xid: this.xid, expected: value, value: original })
-      this.owned = null
-    } catch (error) {
-      if (error.message.includes('Ownership conflict:')) {
-        this.owned = null
-        this.conflicted = true
-      }
-      throw error
-    }
-  }
-}
-
 const MetaWindow = GObject.registerClass(
   class UniteNextMetaWindow extends GObject.Object {
-    _init(win, context) {
+    _init(win, context, invalidatePresentation) {
       super._init()
       this.context = context
+      this.invalidatePresentation = invalidatePresentation
       this.win = win
       this.xid = getXid(win)
 
-      this.signals  = new Handlers.Signals()
-      this.settings = new Handlers.Settings(context)
+      this.signals  = new Signals()
+      this.settings = new Settings(context)
 
       if (this.xid && !this.clientDecorated) {
-        this.decorations = new ServerDecorations(this)
+        this.decorations = new ServerDecorations(this, { request: motifRequest, border: Meta.FrameType.BORDER })
       } else {
         this.decorations = new ClientDecorations(this)
       }
@@ -139,8 +68,19 @@ const MetaWindow = GObject.registerClass(
         win, 'size-changed', this._onStateChanged.bind(this)
       )
 
+      // Maximization can change while the frame already fills the work area.
+      for (const axis of ['horizontally', 'vertically']) {
+        this.signals.connect(
+          win, `notify::maximized-${axis}`, this._onStateChanged.bind(this)
+        )
+      }
+
       this.signals.connect(
         win, 'notify::title', this._onTitleChanged.bind(this)
+      )
+
+      this.signals.connect(
+        win, 'notify::skip-taskbar', this.invalidatePresentation
       )
 
       this.settings.connect(
@@ -152,11 +92,11 @@ const MetaWindow = GObject.registerClass(
       )
 
       this.settings.connect(
-        'show-window-buttons', this.syncControls.bind(this)
+        'show-window-buttons', this.invalidatePresentation
       )
 
       this.settings.connect(
-        'show-window-title', this.syncAppmenu.bind(this)
+        'show-window-title', this.invalidatePresentation
       )
 
       this.syncComponents()
@@ -208,10 +148,6 @@ const MetaWindow = GObject.registerClass(
 
     get restrictToPrimary() {
       return this.settings.get('restrict-to-primary-screen')
-    }
-
-    get handleScreen() {
-      return this.primaryScreen || !this.restrictToPrimary
     }
 
     get showTitle() {
@@ -271,7 +207,7 @@ const MetaWindow = GObject.registerClass(
     }
 
     close() {
-      const time = global.get_current_time()
+      const time = this.context.getCurrentTime()
       time && this.win.delete(time)
     }
 
@@ -283,40 +219,13 @@ const MetaWindow = GObject.registerClass(
       }
     }
 
-    syncControls() {
-      if (this.hasFocus) {
-        const overview = Main.overview.visibleTarget
-        const controls = Main.panel.statusArea.uniteNextWindowControls
-
-        controls && controls.setVisible(
-          !overview && !this.skipTaskbar && this.showButtons
-        )
-      }
-    }
-
-    syncAppmenu() {
-      const appmenu = Main.panel.statusArea.uniteNextAppMenu
-
-      if (appmenu && this.hasFocus && this.title) {
-        const title = this.title.replace(/\r?\n|\r/g, ' ')
-        appmenu.setText(title)
-      }
-    }
-
     syncComponents() {
       this.syncDecorations()
-      this.syncControls()
-      this.syncAppmenu()
+      this.invalidatePresentation()
     }
 
     _parseEnumSetting(name) {
-      switch (this.settings.get(name)) {
-        case 'always':    return true
-        case 'never':     return false
-        case 'tiled':     return this.handleScreen && this.tiled
-        case 'maximized': return this.handleScreen && this.maximized
-        case 'both':      return this.handleScreen && this.anyMaximized
-      }
+      return windowPolicyApplies(this.settings.get(name), this)
     }
 
     _onStateChanged() {
@@ -324,12 +233,12 @@ const MetaWindow = GObject.registerClass(
     }
 
     _onTitleChanged() {
-      this.syncAppmenu()
+      this.invalidatePresentation()
     }
 
     destroy(reset = true) {
       try {
-        Handlers.runCleanup([
+        runCleanup([
           () => this.signals.disconnectAll(),
           () => this.settings.disconnectAll(),
           () => { if (reset) this.decorations.reset() }
@@ -347,13 +256,30 @@ export const WindowManager = GObject.registerClass(
       super._init()
       this.context = context
       this.windows  = new Map()
-      this.signals  = new Handlers.Signals()
-      this.settings = new Handlers.Settings(context)
-      this.timeouts = new Handlers.Timeouts()
-      this.styles   = new Handlers.Styles()
+      this.signals  = new Signals()
+      this.settings = new Settings(context)
+      this.timeouts = new Timeouts()
+      this.styles   = new Styles()
 
       this._focusWindow  = null
       this._startingApps = []
+      this._presentationObserver = null
+    }
+
+    // A GObject signal logs observer exceptions instead of propagating them.
+    // Keep this acquisition boundary synchronous so window rollback can run.
+    observePresentation(callback) {
+      if (typeof callback !== 'function') throw new TypeError('Presentation observer must be a function')
+      if (this._presentationObserver) throw new Error('Window presentation already has an owner')
+      const observer = { callback }
+      this._presentationObserver = observer
+      return () => {
+        if (this._presentationObserver === observer) this._presentationObserver = null
+      }
+    }
+
+    _notifyPresentation() {
+      if (this._presentationObserver) this._presentationObserver.callback()
     }
 
     _connect() {
@@ -363,6 +289,11 @@ export const WindowManager = GObject.registerClass(
 
       this.signals.connect(
         this.context.display, 'window-entered-monitor', this._onWindowEntered.bind(this)
+      )
+
+      // Mutter can retain a logical monitor when only its primary flag changes.
+      this.signals.connect(
+        this.context.monitorManager, 'monitors-changed', this._onMonitorsChanged.bind(this)
       )
 
       this.signals.connect(
@@ -382,13 +313,17 @@ export const WindowManager = GObject.registerClass(
       )
 
       this.settings.connect(
+        'restrict-to-primary-screen', this._onStylesChange.bind(this)
+      )
+
+      this.settings.connect(
         'button-layout', this._onStylesChange.bind(this)
       )
     }
 
     get focusApp() {
       const focusApps = [this.context.windowTracker.focus_app].concat(this._startingApps)
-      const workspace = global.workspace_manager.get_active_workspace()
+      const workspace = this.context.workspaceManager.get_active_workspace()
 
       return focusApps.find(app => app && app.is_on_workspace(workspace))
     }
@@ -413,26 +348,32 @@ export const WindowManager = GObject.registerClass(
 
     setWindow(win) {
       if (!this.hasWindow(win)) {
-        const meta = new MetaWindow(win, this.context)
+        const meta = new MetaWindow(win, this.context, () => this._notifyPresentation())
         this.windows.set(getId(win), meta)
         try {
           meta.activate(() => this.deleteWindow(win, false))
         } catch (error) {
-          Handlers.runCleanup([() => { throw error }, () => this.deleteWindow(win)])
+          runCleanup([() => { throw error }, () => this._removeWindow(win)])
         }
       }
     }
 
-    deleteWindow(win, reset = true) {
+    _removeWindow(win, reset = true) {
       if (this.hasWindow(win)) {
         const meta = this.getWindow(win)
         this.windows.delete(getId(win))
         meta.destroy(reset)
+        return true
       }
+      return false
+    }
+
+    deleteWindow(win, reset = true) {
+      if (this._removeWindow(win, reset)) this._notifyPresentation()
     }
 
     clearWindows() {
-      Handlers.runCleanup([...this.windows.keys()].map(key => () => this.deleteWindow(key)))
+      runCleanup([...this.windows.keys()].map(key => () => this.deleteWindow(key)))
     }
 
     registerWindow(meta_window) {
@@ -459,11 +400,17 @@ export const WindowManager = GObject.registerClass(
       }
     }
 
+    _onMonitorsChanged() {
+      runCleanup([...this.windows.values()].map(window => () => window.syncComponents()))
+    }
+
     _onFocusWindow(display) {
       this._focusWindow = display.focus_window
 
       if (this.focusWindow) {
         this.focusWindow.syncComponents()
+      } else {
+        this._notifyPresentation()
       }
     }
 
@@ -473,17 +420,18 @@ export const WindowManager = GObject.registerClass(
       } else {
         this._startingApps = this._startingApps.filter(item => item !== app)
       }
+      this._notifyPresentation()
     }
 
     _onAttention(actor, win) {
       const auto = this.settings.get('autofocus-windows')
-      const time = global.get_current_time()
+      const time = this.context.getCurrentTime()
 
-      auto && Main.activateWindow(win, time)
+      auto && this.context.activateWindow(win, time)
     }
 
     _onStylesChange() {
-      if (this.hideTitlebars != 'never') {
+      if (!this.settings.get('restrict-to-primary-screen') && this.hideTitlebars != 'never') {
         const side = this.settings.get('window-buttons-position')
         const path = `@/buttons-${side}/${this.hideTitlebars}.css`
 
@@ -496,7 +444,7 @@ export const WindowManager = GObject.registerClass(
     activate() {
       this._connect()
       this.timeouts.idle(() => {
-        const actors = global.get_window_actors()
+        const actors = this.context.getWindowActors()
         actors.forEach(actor => this.registerActor(actor))
       })
 
@@ -507,8 +455,9 @@ export const WindowManager = GObject.registerClass(
     destroy() {
       this._focusWindow  = null
       this._startingApps = []
+      this._presentationObserver = null
 
-      Handlers.runCleanup([
+      runCleanup([
         () => this.timeouts.removeAll(),
         () => this.signals.disconnectAll(),
         () => this.settings.disconnectAll(),

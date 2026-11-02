@@ -25,7 +25,7 @@ If applicable, add screenshots to help explain your problem.
 **Environment (please complete the following information):**
  - OS and distribution version:
  - GNOME Shell version (50 or a later explicitly supported major):
- - Unite version:
+ - Unite Next version and source revision:
  - Application type (native Wayland or XWayland), if relevant:
 
 **Logs**

@@ -16,7 +16,7 @@ async function until(predicate, description, milliseconds = 3000) {
   }
 }
 
-function blankPanelPoint(win) {
+function blankPanelPoint(win, requireWindowBelow = true) {
   const [x, y] = Main.panel.get_transformed_position()
   const [width, height] = Main.panel.get_transformed_size()
   const frame = win.get_frame_rect()
@@ -24,7 +24,7 @@ function blankPanelPoint(win) {
   let current = []
   for (let offset = 12; offset < width - 12; offset += 4) {
     const point = { x: x + offset, y: y + Math.floor(height / 2) }
-    if (point.x >= frame.x && point.x < frame.x + frame.width &&
+    if ((!requireWindowBelow || point.x >= frame.x && point.x < frame.x + frame.width) &&
         global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, point.x, point.y) === Main.panel) {
       current.push(point)
     } else {
@@ -41,11 +41,29 @@ function blankPanelPoint(win) {
 
 function maximized(win) { return win.maximized_horizontally && win.maximized_vertically }
 
+export function inputSceneReady(win) {
+  const actor = win.get_compositor_private()
+  if (Main.overview.visible || Main.overview.visibleTarget || Main.modalCount !== 0 ||
+      !actor?.mapped || !actor.has_allocation()) return false
+
+  // Native 50/51 size changes can publish MetaWindow flags before the clone,
+  // frozen content and actor transforms finish. Observe their actual owners.
+  const effects = ['_mapping', '_minimizing', '_unminimizing', '_resizePending', '_resizing']
+  const transitions = ['opacity', 'x', 'y', 'translation-x', 'translation-y', 'scale-x', 'scale-y']
+  return effects.every(name => !Main.wm[name].has(actor)) &&
+    transitions.every(name => actor.get_transition(name) === null) &&
+    actor.scale_x === 1 && actor.scale_y === 1 &&
+    actor.translation_x === 0 && actor.translation_y === 0 && actor.opacity === 255
+}
+
 // The caller owns the maximized, focused fixture window and the private session.
 export async function runInput(owner, settings, wm, win) {
   assert(GLib.getenv('UNITE_PRIVATE_TEST') === '1', 'Native input requires a private test session')
+  await until(() => owner.context?.focusWindow?.win === win && maximized(win) &&
+    win.is_on_primary_monitor() && inputSceneReady(win), 'focused primary fixture scene ready')
   assert(owner.context?.focusWindow?.win === win && maximized(win), 'Focused maximized fixture required')
-  const extensionKeys = ['enable-titlebar-actions', 'hide-window-titlebars', 'show-window-buttons']
+  const extensionKeys = ['enable-titlebar-actions', 'hide-window-titlebars', 'show-window-buttons',
+    'restrict-to-primary-screen']
   const wmKeys = ['button-layout', 'action-double-click-titlebar', 'action-middle-click-titlebar', 'action-right-click-titlebar']
   const saved = [
     ...extensionKeys.map(key => [settings, key, settings.get_user_value(key)]),
@@ -55,12 +73,16 @@ export async function runInput(owner, settings, wm, win) {
   const previousFocus = global.stage.get_key_focus()
   const previousOverview = Main.overview.visibleTarget
   const previousMinimized = win.minimized
+  const previousMonitor = win.get_monitor()
   const previousFlags = (win.maximized_horizontally ? Meta.MaximizeFlags.HORIZONTAL : 0) |
     (win.maximized_vertically ? Meta.MaximizeFlags.VERTICAL : 0)
   const signals = []
   const pressed = new Set()
   const keys = new Set()
   const counts = { press: 0, release: 0, grab: 0, end: 0, unite: 0 }
+  let deliveredMotions = 0
+  let deliveredPosition = null
+  let positionTracker = null
   const scenarios = []
   const errors = []
   let pointer = null
@@ -80,16 +102,35 @@ export async function runInput(owner, settings, wm, win) {
   }
   const check = (condition, message) => assert(condition, `Native input: ${message}`)
   const record = name => { scenarios.push(name); print(`UNITE_INPUT_SCENARIO ${name}`) }
+  const fixtureState = phase => {
+    const managed = owner.context?.focusWindow
+    const { x, y, width, height } = win.get_frame_rect()
+    const state = { phase, monitor: win.get_monitor(), primary: Main.layoutManager.primaryIndex,
+      onPrimary: win.is_on_primary_monitor(), frame: { x, y, width, height }, maximized: maximized(win),
+      minimized: win.minimized, focused: win.has_focus(), contextFocus: managed?.win === win,
+      hideTitlebars: managed?.hideTitlebars,
+      restricted: settings.get_boolean('restrict-to-primary-screen'), sceneReady: inputSceneReady(win),
+      panelPosition: Main.panel.get_transformed_position(), counts: { ...counts } }
+    print(`UNITE_INPUT_FIXTURE_STATE ${JSON.stringify(state)}`)
+    return state
+  }
+  const placeFixture = monitor => {
+    check(win.get_monitor() >= 0, 'Cannot move an unmanaged input fixture')
+    check(Number.isInteger(monitor) && monitor >= 0 && monitor < global.display.get_n_monitors(),
+      `Invalid input fixture monitor: ${monitor}`)
+    win.move_to_monitor(monitor)
+  }
 
   async function move(point) {
+    const atPoint = coords => coords && Math.abs(coords[0] - point.x) < 2 && Math.abs(coords[1] - point.y) < 2
+    if (atPoint(deliveredPosition) && atPoint(global.get_pointer())) return
+    const observed = deliveredMotions
     pointer.notify_absolute_motion(GLib.get_monotonic_time(), point.x, point.y)
     try {
-      await until(() => {
-        const [x, y] = global.get_pointer()
-        return Math.abs(x - point.x) < 2 && Math.abs(y - point.y) < 2
-      }, `pointer reached ${point.x},${point.y}`)
+      await until(() => deliveredMotions > observed && atPoint(deliveredPosition) && atPoint(global.get_pointer()),
+        `pointer motion delivered at ${point.x},${point.y}`)
     } catch (error) {
-      throw new Error(`${error.message}; observed pointer=${JSON.stringify(global.get_pointer())}, events=${JSON.stringify(counts)}`)
+      throw new Error(`${error.message}; observed pointer=${JSON.stringify(global.get_pointer())}, processed position=${JSON.stringify(deliveredPosition)}, events=${JSON.stringify(counts)}`)
     }
   }
   async function press(button) {
@@ -134,23 +175,44 @@ export async function runInput(owner, settings, wm, win) {
     win.unminimize()
     Main.activateWindow(win)
     await until(() => owner.context.focusWindow?.win === win && win.has_focus(), 'fixture focused')
+    await until(() => inputSceneReady(win), 'focused fixture animation and overview completed')
     await frameReady('focused fixture frame painted before picking input targets')
   }
   async function maximizeFixture() {
     await focusFixture()
+    // Native unmaximize restores saved stage coordinates, which can belong to
+    // another monitor after temporary display rearrangement. Each eligible
+    // primary-input scenario owns its placement as well as its maximize flags.
+    placeFixture(previousMonitor)
+    await until(() => win.get_monitor() === previousMonitor && win.is_on_primary_monitor() && inputSceneReady(win),
+      'fixture placed on its original primary monitor before maximize')
     win.set_maximize_flags(Meta.MaximizeFlags.BOTH)
     await until(() => maximized(win), 'fixture maximized')
+    await until(() => inputSceneReady(win), 'maximized fixture scene completed')
     await frameReady('maximized fixture frame painted before picking input targets')
   }
 
   try {
-    const seat = global.stage.get_context().get_backend().get_default_seat()
+    const backend = global.stage.get_context().get_backend()
+    const seat = backend.get_default_seat()
     pointer = seat.create_virtual_device(Clutter.InputDeviceType.POINTER_DEVICE)
     keyboard = seat.create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE)
+    const sprite = backend.get_pointer_sprite(global.stage)
+    assert(sprite, 'Native pointer sprite required')
+    positionTracker = global.backend.get_cursor_tracker()
+    // MetaBackend emits this after handling pointer motion, including motion
+    // consumed by a Wayland client before Clutter's captured-event signal.
+    connect(positionTracker, 'position-invalidated', () => {
+      const position = sprite.get_coords()
+      deliveredPosition = [position.x, position.y]
+      deliveredMotions++
+    })
     connect(global.stage, 'captured-event', (_actor, event) => {
       if (event.type() === Clutter.EventType.BUTTON_PRESS) counts.press++
       if (event.type() === Clutter.EventType.BUTTON_RELEASE) counts.release++
-      if (event.type() === Clutter.EventType.MOTION) counts.motion = event.get_coords()
+      if (event.type() === Clutter.EventType.MOTION) {
+        counts.motion = event.get_coords()
+      }
       return Clutter.EVENT_PROPAGATE
     })
     connect(global.display, 'grab-op-begin', (_display, window, operation) => {
@@ -160,6 +222,7 @@ export async function runInput(owner, settings, wm, win) {
       if (window === win) counts.end++
     })
     settings.set_boolean('enable-titlebar-actions', true)
+    settings.set_boolean('restrict-to-primary-screen', true)
     settings.set_string('hide-window-titlebars', 'always')
     settings.set_string('show-window-buttons', 'always')
     wm.set_string('button-layout', 'minimize,maximize,close:')
@@ -208,19 +271,26 @@ export async function runInput(owner, settings, wm, win) {
     await Scripting.sleep(global.stage.get_context().get_settings().double_click_time + 20)
     point = blankPanelPoint(win)
     const grabsBeforeDouble = counts.grab
+    fixtureState('before primary double click')
     await click(1, point, true)
     check(maximized(win), 'First primary press changed maximization before the second click')
     await click(1, point, true)
     await until(() => !win.maximized_horizontally && !win.maximized_vertically,
       'native double-click restored window')
     check(counts.grab === grabsBeforeDouble + 1, 'Double click did not veto only its second native drag')
+    fixtureState('after primary double-click restore')
     record('native primary double click restores maximized window once')
     await maximizeFixture()
     point = blankPanelPoint(win)
 
     const beforeMiddle = counts.unite
+    fixtureState('before primary middle click')
+    check(win.get_monitor() === previousMonitor && win.is_on_primary_monitor() &&
+      owner.context.focusWindow?.win === win && owner.context.focusWindow.hideTitlebars,
+    'Expected-eligible middle click requires the focused primary fixture')
     await click(2, point, true)
-    await until(() => win.minimized, 'native middle-click minimized window')
+    try { await until(() => win.minimized, 'native middle-click minimized window') }
+    catch (error) { fixtureState('middle-click timeout'); throw error }
     check(counts.unite === beforeMiddle + 1, 'Middle click did not execute exactly once')
     record('native middle click minimizes focused window')
     await maximizeFixture()
@@ -307,6 +377,41 @@ export async function runInput(owner, settings, wm, win) {
     await until(() => owner.context.focusWindow.hideTitlebars, 'window eligibility restored')
     record('ineligible focused window preserves native panel interaction')
 
+    const secondary = Main.layoutManager.monitors.findIndex((_, index) => index !== Main.layoutManager.primaryIndex)
+    check(secondary >= 0, 'Two native monitors required for panel policy proof')
+    placeFixture(secondary)
+    await focusFixture()
+    await until(() => win.get_monitor() === secondary, 'secondary fixture placed')
+    await until(() => !Main.panel.statusArea.uniteNextWindowControls.container.visible,
+      'restricted secondary panel hides controls')
+    point = blankPanelPoint(win, false)
+    const beforeRestricted = counts.unite
+    await click(2, point, true)
+    await frameReady('restricted secondary input frame completed')
+    check(counts.unite === beforeRestricted && !win.minimized && win.get_monitor() === secondary,
+      'Restricted secondary window received a panel titlebar action')
+    record('restricted secondary Always hides controls and rejects native panel action')
+
+    settings.set_boolean('restrict-to-primary-screen', false)
+    await until(() => Main.panel.statusArea.uniteNextWindowControls.container.visible,
+      'unrestricted secondary controls restored')
+    await frameReady('unrestricted secondary panel layout painted')
+    point = blankPanelPoint(win, false)
+    const beforeUnrestricted = counts.unite
+    await click(2, point, true)
+    await until(() => win.minimized, 'unrestricted secondary native middle click minimized window')
+    check(counts.unite === beforeUnrestricted + 1, 'Secondary panel action did not execute exactly once')
+    await focusFixture()
+    settings.set_boolean('restrict-to-primary-screen', true)
+    await until(() => !Main.panel.statusArea.uniteNextWindowControls.container.visible,
+      'restriction reapplies to existing secondary controls')
+    placeFixture(Main.layoutManager.primaryIndex)
+    await maximizeFixture()
+    await until(() => win.is_on_primary_monitor() &&
+      Main.panel.statusArea.uniteNextWindowControls.container.visible,
+    'primary return restores controls while restricted')
+    record('unrestricted secondary native panel action resumes; primary return restores eligibility')
+
     // Invoke the actual St.Button key handling, not its clicked signal directly.
     const button = Main.panel.statusArea.uniteNextWindowControls._buttons.get('maximize')
     check(button instanceof St.Button && button.can_focus && button.accessible_name,
@@ -334,28 +439,38 @@ export async function runInput(owner, settings, wm, win) {
       cleanup(() => keyboard.notify_keyval(GLib.get_monotonic_time(), key, Clutter.KeyState.RELEASED))
     cleanup(() => menuManager._manager.activeMenu?.close())
     cleanup(() => { if (modalGrab) Main.popModal(modalGrab) })
-    for (const [object, id] of signals) cleanup(() => object.disconnect(id))
+    for (const [object, id] of signals)
+      if (object !== global.stage && object !== positionTracker) cleanup(() => object.disconnect(id))
     cleanup(() => modal?.destroy())
     cleanup(() => descendant?.destroy())
     for (const [object, key, value] of saved)
       cleanup(() => value === null ? object.reset(key) : object.set_value(key, value))
+    cleanup(() => placeFixture(previousMonitor))
     cleanup(() => win.set_unmaximize_flags(Meta.MaximizeFlags.BOTH))
     cleanup(() => { if (previousFlags) win.set_maximize_flags(previousFlags) })
     cleanup(() => previousMinimized ? win.minimize() : Main.activateWindow(win))
     cleanup(() => global.stage.set_key_focus(previousFocus))
-    cleanup(() => previousOverview ? Main.overview.show() : Main.overview.hide())
     if (pointer) {
       // Native virtual-device calls queue work on the input thread. Observe the
-      // last motion before dispose, which invalidates that device's native state.
+      // final native delivery before restoring overview: returning to a hot
+      // corner can legitimately toggle it after the backend pointer has moved.
       try { await move({ x: previousPointer[0], y: previousPointer[1] }) }
       catch (error) { errors.push(error) }
     }
-    cleanup(() => keyboard?.run_dispose())
-    cleanup(() => pointer?.run_dispose())
+    cleanup(() => previousOverview ? Main.overview.show() : Main.overview.hide())
     try {
       await until(() => win.maximized_horizontally === Boolean(previousFlags & Meta.MaximizeFlags.HORIZONTAL) &&
         win.maximized_vertically === Boolean(previousFlags & Meta.MaximizeFlags.VERTICAL), 'fixture maximize state restored')
+      await until(() => previousOverview
+        ? Main.overview.visible && Main.overview.visibleTarget
+        : !Main.overview.visible && !Main.overview.visibleTarget, 'fixture overview state restored')
+      if (!previousMinimized && !previousOverview)
+        await until(() => inputSceneReady(win), 'restored fixture scene completed before returning')
     } catch (error) { errors.push(error) }
+    for (const [object, id] of signals)
+      if (object === global.stage || object === positionTracker) cleanup(() => object.disconnect(id))
+    cleanup(() => keyboard?.run_dispose())
+    cleanup(() => pointer?.run_dispose())
   }
   if (errors.length) throw new AggregateError(errors,
     `Native input acceptance failed: ${errors.map(error => error.message).join('; ')}`)

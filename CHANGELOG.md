@@ -1,5 +1,13 @@
 # Changelog
 
+## Unite Next — Unreleased
+
+- Confine bundled and user control themes, including imports, to owned controls; refresh discovery on explicit theme selection.
+- Keep controls hidden for ineligible windows across overview and application-state changes.
+- Give Primary screen only precedence over Always; disable global GTK decoration styling while that restriction is enabled.
+- Preserve native notification width requests and foreign geometry changes during updates and cleanup.
+- Translate accessible window actions in all five supplied catalogs and confine test bus endpoints to disposable state.
+
 ## [v84](https://github.com/hardpixel/unite-shell/tree/v84) (2025-11-16)
 
 [Full Changelog](https://github.com/hardpixel/unite-shell/compare/v83...v84)

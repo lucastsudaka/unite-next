@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Install native build tools
-        run: dnf install --assumeyes --setopt=install_weak_deps=False git gnome-shell gjs gettext glib2 python3 dbus-daemon
+        run: dnf install --assumeyes --setopt=install_weak_deps=False git gnome-shell gjs gettext glib2 python3 dbus-daemon gtk4 libadwaita
 
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -60,9 +60,7 @@ jobs:
         run: /usr/bin/python3 tools/build.py check
 
       - name: Exercise native package and failure scenarios
-        run: |
-          mkdir -p /tmp/.X11-unix
-          /usr/bin/python3 -m unittest discover -s tests -p 'test_*.py' -v
+        run: /usr/bin/python3 -m unittest discover -s tests -p 'test_*.py' -v
 
       - name: Exercise runtime contract scenarios in private state
         run: /usr/bin/python3 tools/test-runtime.py
@@ -72,45 +70,7 @@ jobs:
 
       - name: Prepare the exact artifact for isolated desktop acceptance
         if: ${{ matrix.fedora == 44 && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-        run: |
-          /usr/bin/python3 - <<'PY'
-          import hashlib
-          import json
-          import os
-          from pathlib import Path
-          import shutil
-          import subprocess
-          import sys
-
-          sys.path.insert(0, "tools")
-          import build
-
-          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
-          if (os.environ["GITHUB_REPOSITORY"] != "lucastsudaka/unite-next" or
-                  event["repository"].get("private") is not True):
-              raise ValueError("Acceptance artifacts belong only to the selected private repository")
-          metadata = build.identity()
-          commit = subprocess.check_output(["git", "-c", f"safe.directory={Path.cwd()}", "rev-parse", "HEAD"], text=True).strip()
-          if commit != os.environ["GITHUB_SHA"]:
-              raise ValueError("Checkout does not match the workflow commit")
-          if (metadata["uuid"] != "unite-next@lucastsudaka.github.io" or
-                  metadata["url"] != "https://github.com/" + os.environ["GITHUB_REPOSITORY"]):
-              raise ValueError("Candidate must belong to this independent repository")
-          filename = f"unite-next-v{metadata['version']}.zip"
-          archive = Path("build") / filename
-          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
-          candidate = Path("build/candidate")
-          candidate.mkdir()
-          shutil.copyfile(archive, candidate / filename)
-          (candidate / (filename + ".sha256")).write_text(
-              f"{digest}  {filename}\n", encoding="utf-8")
-          manifest = {"repository": os.environ["GITHUB_REPOSITORY"],
-                      "source_commit": commit, "uuid": metadata["uuid"],
-                      "version": metadata["version"], "archive": filename, "sha256": digest}
-          (candidate / "candidate.json").write_text(
-              json.dumps(manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-          print(f"Native acceptance candidate: {filename}; SHA-256: {digest}; source: {commit}")
-          PY
+        run: /usr/bin/python3 tools/candidate.py prepare
 
       # Transfer is immutable; the release workflow publishes these accepted bytes.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

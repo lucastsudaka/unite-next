@@ -25,14 +25,9 @@
 }
 
 #panel.unite-next-shell #panelActivities,
-#panel.unite-next-shell .system-tray-icons,
 #panel.unite-next-shell .desktop-name-label {
   -natural-hpadding: 10px;
   -minimum-hpadding: 8px;
-}
-
-#panel.unite-next-shell .system-tray-icons .panel-status-indicators-box {
-  spacing: 14px;
 }
 
 #panel.unite-next-shell .panel-button.clock-display {

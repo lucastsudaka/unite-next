@@ -1,8 +1,3 @@
-#panel.unite-next-shell .panel-button.window-controls {
-  -natural-hpadding: 0px;
-  -minimum-hpadding: 0px;
-}
-
 #panel.unite-next-shell .panel-button .app-menu-icon {
   -st-icon-style: symbolic;
 }
@@ -32,10 +27,6 @@
 
 #panel.unite-next-shell #appMenu {
   spacing: 6px;
-}
-
-#panel.unite-next-shell #appMenu .label-shadow {
-  color: transparent;
 }
 
 #panel.unite-next-shell #appMenu .panel-status-menu-box {

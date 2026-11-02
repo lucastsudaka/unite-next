@@ -7,11 +7,13 @@ import os
 from pathlib import Path
 import re
 import select
+import shlex
 import signal
 import struct
 import subprocess
 import tempfile
 import unittest
+from urllib.parse import unquote_to_bytes
 import zipfile
 import zlib
 from unittest.mock import patch
@@ -20,6 +22,88 @@ RUNNER = Path(__file__).resolve().parents[1] / 'tools/test-desktop.py'
 spec = importlib.util.spec_from_file_location('unite_desktop', RUNNER)
 desktop = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(desktop)
+
+
+class PerfHelperLifetimeTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix='unite-helper-tests-')
+        self.addCleanup(self.temporary.cleanup)
+        self.base = Path(self.temporary.name)
+        self.library_directory = self.base / 'libraries'
+        self.library_directory.mkdir()
+        (self.library_directory / 'Shell-18.typelib').write_bytes(b'Fixture resource owner')
+        self.native_directory = self.base / "native tools ' $(literal)"
+        self.native_directory.mkdir()
+        self.helper = self.native_directory / 'gnome-shell-perf-helper'
+        self.helper.write_text('#!/usr/bin/python3\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n')
+        self.helper.chmod(0o700)
+        self.launch_base = self.base / "private launch ' directory"
+        self.launch_base.mkdir()
+        self.config = ("export const PACKAGE_VERSION = '50.5';\n" +
+                       f'export const LIBEXECDIR = {str(self.native_directory)!r};\n')
+
+    def configure(self, config=None):
+        env = {'GNOME_SHELL_BUILDDIR': 'Inherited foreign prefix'}
+        with patch.object(desktop.subprocess, 'run', return_value=subprocess.CompletedProcess(
+                [], 0, stdout=self.config if config is None else config)):
+            result = desktop.configure_perf_helper(self.launch_base, self.library_directory, '50.5', env)
+        return result, env
+
+    def test_native_launcher_uses_the_supervisor_deadline_and_preserves_literal_arguments(self):
+        result, env = self.configure()
+        # Native scripting appends the filename, then uses POSIX command parsing.
+        argv = shlex.split(env['GNOME_SHELL_BUILDDIR'] + '/gnome-shell-perf-helper')
+        self.assertEqual(argv, [str(self.launch_base / 'perf-helper/gnome-shell-perf-helper')])
+        process = subprocess.run([*argv, '--probe', 'literal value'], check=True,
+                                 stdout=subprocess.PIPE, text=True, timeout=5)
+        self.assertEqual(json.loads(process.stdout), ['--idle-timeout=90', '--probe', 'literal value'])
+        self.assertEqual(result, {'native_helper': str(self.helper), 'idle_timeout_seconds': 90})
+        self.assertEqual(desktop.DESKTOP_TIMEOUT_SECONDS, 90)
+
+    def test_missing_or_ambiguous_resource_owner_is_rejected_without_a_launcher(self):
+        library = self.library_directory / 'Shell-18.typelib'
+        library.unlink()
+        with self.assertRaisesRegex(RuntimeError, 'one native Shell typelib'):
+            self.configure()
+        library.touch()
+        (self.library_directory / 'Shell-51.typelib').touch()
+        with self.assertRaisesRegex(RuntimeError, 'one native Shell typelib'):
+            self.configure()
+        self.assertFalse((self.launch_base / 'perf-helper').exists())
+
+    def test_installed_native_resource_tool_is_selected_without_the_ambient_path(self):
+        env = {'PATH': '/unrelated/toolchain'}
+        with patch.object(desktop.subprocess, 'run', return_value=subprocess.CompletedProcess(
+                [], 0, stdout=self.config)) as extract:
+            desktop.configure_perf_helper(self.launch_base, self.library_directory, '50.5', env)
+        self.assertEqual(extract.call_args.args[0][0], '/usr/bin/gjs')
+
+    def test_invalid_or_mismatched_native_config_is_rejected_before_writing(self):
+        cases = ['', self.config + "export const LIBEXECDIR = '/other';\n",
+                 self.config.replace("'50.5'", "'51.0'"),
+                 self.config.replace("'50.5'", '50.5'),
+                 "export const PACKAGE_VERSION = '50.5';\nexport const LIBEXECDIR = 'relative';\n"]
+        for config in cases:
+            with self.subTest(config=config), self.assertRaises(ValueError):
+                self.configure(config)
+            self.assertFalse((self.launch_base / 'perf-helper').exists())
+
+    def test_native_helper_must_exist_and_be_executable(self):
+        self.helper.chmod(0o600)
+        with self.assertRaisesRegex(ValueError, 'unavailable or not executable'):
+            self.configure()
+        self.helper.unlink()
+        with self.assertRaisesRegex(ValueError, 'unavailable or not executable'):
+            self.configure()
+        self.assertFalse((self.launch_base / 'perf-helper').exists())
+
+    def test_resource_read_failure_propagates_without_changing_the_environment(self):
+        env = {'GNOME_SHELL_BUILDDIR': 'Original prefix'}
+        with patch.object(desktop.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, ['gjs'])):
+            with self.assertRaises(subprocess.CalledProcessError):
+                desktop.configure_perf_helper(self.launch_base, self.library_directory, '50.5', env)
+        self.assertEqual(env, {'GNOME_SHELL_BUILDDIR': 'Original prefix'})
+        self.assertFalse((self.launch_base / 'perf-helper').exists())
 
 
 class CandidateArchiveTests(unittest.TestCase):
@@ -171,6 +255,16 @@ class PrivateBusTests(unittest.TestCase):
                 raise LookupError('Injected owner failure')
         self.assertIsNotNone(self.daemons[0].returncode)
 
+    def test_special_path_bytes_do_not_change_the_system_endpoint(self):
+        base = self.base / "é &,%='"
+        (base / 'runtime').mkdir(mode=0o700, parents=True)
+        with desktop.private_system_bus(base) as address:
+            self.assertEqual(bus_pid(address), self.daemons[0].pid)
+            self.assertTrue((base / 'runtime/system-bus').is_socket())
+            self.assertEqual(unquote_to_bytes(address.partition(',guid=')[0]),
+                             b'unix:path=' + os.fsencode(base / 'runtime/system-bus'))
+        self.assertIsNotNone(self.daemons[0].returncode)
+
     def test_failed_native_startup_reaps_its_only_child(self):
         (self.base / 'runtime').rmdir()  # Native daemon cannot bind its requested socket.
         with self.assertRaisesRegex(RuntimeError, 'Private system bus failed to start'):
@@ -218,6 +312,81 @@ with tempfile.TemporaryDirectory(prefix='unite-bus-owner-') as directory:
                     signal.pidfd_send_signal(daemon_fd, signal.SIGKILL)
                     self.assertTrue(select.select([daemon_fd], [], [], 5)[0], 'Owned daemon cleanup deadline')
                 os.close(daemon_fd)
+
+
+class PrivateSessionBusTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix='un-sbus-')
+        self.addCleanup(self.temporary.cleanup)
+        self.base = Path(self.temporary.name)
+        (self.base / 'runtime').mkdir(mode=0o700)
+
+    def start_session(self, base=None):
+        base = self.base if base is None else base
+        configuration, _ = desktop.write_private_bus_config(base, 'session')
+        # Neither the inherited address nor an ambient temporary directory may
+        # select the endpoint. Keep the program alive only while it is inspected.
+        env = {**os.environ, 'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/unreachable-inherited-bus',
+               'TMPDIR': str(base / 'missing-ambient-tmp')}
+        process = subprocess.Popen(
+            ['/usr/bin/dbus-run-session', f'--config-file={configuration}', '--',
+             '/usr/bin/python3', '-c',
+             'import os, sys; print(os.environ["DBUS_SESSION_BUS_ADDRESS"], flush=True); sys.stdin.readline()'],
+            env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, text=True, start_new_session=True)
+        self.addCleanup(self.stop_session, process)
+        return process
+
+    def stop_session(self, process):
+        if process.poll() is None:
+            try:
+                process.communicate('\n', timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.communicate(timeout=5)
+                self.fail('Private session exceeded its shutdown deadline')
+
+    def test_native_session_uses_only_the_private_endpoint_and_reaps_its_daemon(self):
+        process = self.start_session()
+        self.assertTrue(select.select([process.stdout], [], [], 5)[0], 'Session startup deadline')
+        address = process.stdout.readline().strip()
+        self.assertRegex(address, '^' + re.escape(f'unix:path={self.base}/runtime/session-bus,') + 'guid=[0-9a-f]+$')
+        self.assertTrue((self.base / 'runtime/session-bus').is_socket())
+        self.assertEqual((self.base / 'runtime').stat().st_mode & 0o777, 0o700)
+        names = re.findall(r"'([^']+)'", bus_call(address, 'ListActivatableNames'))
+        self.assertEqual(names, ['org.freedesktop.DBus'])
+        daemon_fd = os.pidfd_open(bus_pid(address))
+        self.addCleanup(os.close, daemon_fd)
+        _, errors = process.communicate('\n', timeout=5)
+        self.assertEqual(process.returncode, 0, errors)
+        self.assertTrue(select.select([daemon_fd], [], [], 5)[0], 'Session daemon survived its program')
+
+    def test_special_path_bytes_remain_a_literal_private_session_endpoint(self):
+        base = self.base / "é &,%='"
+        (base / 'runtime').mkdir(mode=0o700, parents=True)
+        process = self.start_session(base)
+        self.assertTrue(select.select([process.stdout], [], [], 5)[0], 'Session startup deadline')
+        address = process.stdout.readline().strip()
+        self.assertEqual(unquote_to_bytes(address.partition(',guid=')[0]),
+                         b'unix:path=' + os.fsencode(base / 'runtime/session-bus'))
+        self.assertTrue((base / 'runtime/session-bus').is_socket())
+        self.assertGreater(bus_pid(address), 0)
+        _, errors = process.communicate('\n', timeout=5)
+        self.assertEqual(process.returncode, 0, errors)
+
+    def test_missing_or_overlong_endpoint_fails_without_starting_the_program(self):
+        missing = self.base / 'missing-runtime'
+        missing.mkdir()
+        long = self.base / ('x' * 108)
+        (long / 'runtime').mkdir(parents=True)
+        for base in (missing, long):
+            with self.subTest(base=base.name):
+                process = self.start_session(base)
+                output, errors = process.communicate('\n', timeout=5)
+                self.assertNotEqual(process.returncode, 0, errors)
+                self.assertEqual(output, '', 'Program ran after failed bus startup')
+                self.assertIn('Failed to start message bus', errors)
+                self.assertFalse((base / 'runtime/session-bus').exists())
 
 
 def png(width=2, height=1):

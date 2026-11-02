@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """Run a candidate archive in an isolated, bounded native GNOME session."""
 import argparse
+import ast
 import ctypes
 from contextlib import contextmanager, ExitStack
 import hashlib
@@ -10,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import selectors
+import shlex
 import signal
 import shutil
 import struct
@@ -17,11 +19,61 @@ import subprocess
 import sysconfig
 import tempfile
 import time
+from urllib.parse import quote_from_bytes, unquote_to_bytes
 import zipfile
 import zlib
 
 ROOT = Path(__file__).resolve().parents[1]
 FORK_UUID = 'unite-next@lucastsudaka.github.io'
+DESKTOP_TIMEOUT_SECONDS = 90
+
+
+def configure_perf_helper(base, library_directory, version, env):
+    """Keep the native window fixture alive for the supervised journey."""
+    typelibs = sorted(library_directory.glob('Shell-*.typelib'))
+    if len(typelibs) != 1:
+        raise RuntimeError(f'Expected one native Shell typelib, found {typelibs}')
+    paths = [library_directory, *sorted(path for path in library_directory.parent.glob('mutter-*')
+                                      if path.is_dir())]
+    probe_env = env.copy()
+    probe_env.update({key: os.pathsep.join(map(str, paths))
+                      for key in ('GI_TYPELIB_PATH', 'LD_LIBRARY_PATH')})
+    # Loading the native GType registers its compiled resources; no Shell global
+    # instance or desktop is constructed in this isolated reader process.
+    reader = '''imports.gi.versions.Shell = ARGV[0];
+const Shell = imports.gi.Shell;
+void Shell.Global;
+const Gio = imports.gi.Gio;
+const bytes = Gio.resources_lookup_data('/org/gnome/shell/misc/config.js', Gio.ResourceLookupFlags.NONE);
+print(new TextDecoder().decode(bytes.get_data()));'''
+    config = subprocess.run(
+        ['/usr/bin/gjs', '-c', reader, typelibs[0].stem.removeprefix('Shell-')],
+        env=probe_env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, timeout=10).stdout
+    values = {}
+    for key in ('PACKAGE_VERSION', 'LIBEXECDIR'):
+        matches = re.findall(rf'^export const {key} = (.+);$', config, re.MULTILINE)
+        if len(matches) != 1:
+            raise ValueError(f'Expected one native {key} constant')
+        values[key] = ast.literal_eval(matches[0])
+        if not isinstance(values[key], str):
+            raise ValueError(f'Native {key} must be a string')
+    if values['PACKAGE_VERSION'] != version:
+        raise ValueError('Native Shell resource version differs from the selected executable')
+    native_directory = Path(values['LIBEXECDIR'])
+    helper = native_directory / 'gnome-shell-perf-helper'
+    if not native_directory.is_absolute() or not helper.is_file() or not os.access(helper, os.X_OK):
+        raise ValueError(f'Native PerfHelper is unavailable or not executable: {helper}')
+    launch_directory = base / 'perf-helper'
+    launch_directory.mkdir(mode=0o700)
+    launcher = launch_directory / 'gnome-shell-perf-helper'
+    launcher.write_text('#!/bin/sh\n' +
+                        f'exec {shlex.quote(str(helper))} --idle-timeout={DESKTOP_TIMEOUT_SECONDS} "$@"\n')
+    launcher.chmod(0o700)
+    # scripting.js parses this prefix as part of a command line. Quote the
+    # directory before its appended filename, including private paths with spaces.
+    env['GNOME_SHELL_BUILDDIR'] = shlex.quote(str(launch_directory))
+    return {'native_helper': str(helper), 'idle_timeout_seconds': DESKTOP_TIMEOUT_SECONDS}
 
 
 def stage_candidate_archive(archive, destination, major):
@@ -184,14 +236,25 @@ def owned_descendants():
                 raise OSError(ctypes.get_errno(), 'Cannot restore child-subreaper state')
 
 
+def write_private_bus_config(base, bus_type):
+    """Bind only an explicit filesystem endpoint in the disposable runtime tree."""
+    if bus_type not in ('system', 'session'):
+        raise ValueError(f'Unsupported private bus type: {bus_type}')
+    socket = base / 'runtime' / f'{bus_type}-bus'
+    # D-Bus escapes pathname bytes, not Unicode characters. Its address escaping
+    # also excludes XML delimiters, so the resulting listen element stays literal.
+    address = 'unix:path=' + quote_from_bytes(os.fsencode(socket), safe='-_/.*')
+    configuration = base / f'{bus_type}.conf'
+    configuration.write_text(f'''<busconfig><type>{bus_type}</type><listen>{address}</listen>
+<auth>EXTERNAL</auth><policy context="default"><allow send_destination="*"/>
+<allow receive_sender="*"/><allow own="*"/></policy></busconfig>''')
+    return configuration, address
+
+
 @contextmanager
 def private_system_bus(base):
     """Own a non-activating bus; never expose the user's system bus to a test."""
-    socket = base / 'runtime/system-bus'
-    configuration = base / 'system.conf'
-    configuration.write_text(f'''<busconfig><type>system</type><listen>unix:path={socket}</listen>
-<auth>EXTERNAL</auth><policy context="default"><allow send_destination="*"/>
-<allow receive_sender="*"/><allow own="*"/></policy></busconfig>''')
+    configuration, endpoint = write_private_bus_config(base, 'system')
     process = None
     try:
         process = subprocess.Popen(
@@ -202,7 +265,9 @@ def private_system_bus(base):
             if not selector.select(timeout=5):
                 raise RuntimeError('Private system bus exceeded its 5-second startup deadline')
             address = process.stdout.readline().strip()
-        if not address.startswith(f'unix:path={socket},guid=') or process.poll() is not None:
+        actual, separator, guid = address.partition(',guid=')
+        if (not separator or unquote_to_bytes(actual) != unquote_to_bytes(endpoint) or
+                not re.fullmatch('[0-9a-f]{32}', guid) or process.poll() is not None):
             raise RuntimeError(f'Private system bus failed to start: {address}')
         yield address
     finally:
@@ -359,6 +424,17 @@ def main():
             path = base / name.lower()
             path.mkdir(mode=0o700)
             env[f"XDG_{name}_HOME" if name != "RUNTIME" else "XDG_RUNTIME_DIR"] = str(path)
+        private_tmp = base / 'tmp'
+        private_tmp.mkdir(mode=0o700)
+        env['TMPDIR'] = str(private_tmp)
+        # Unknown retired values are a private acceptance fixture, never a migration.
+        stale_settings = Path(env['XDG_CONFIG_HOME']) / 'glib-2.0/settings/keyfile'
+        stale_settings.parent.mkdir(mode=0o700, parents=True)
+        stale_settings.write_text('[org/gnome/shell/extensions/unite-next]\n'
+                                  'show-legacy-tray=true\ngreyscale-tray-icons=false\n')
+        stale_settings.chmod(0o600)
+        helper = configure_perf_helper(base, libraries[0], version.split()[-1], env)
+        print('UNITE_NATIVE_HELPER ' + json.dumps(helper), flush=True)
         screenshots = base / 'screenshots'
         if args.screenshots_dir:
             screenshots.mkdir(mode=0o700)
@@ -376,12 +452,9 @@ def main():
                        env=env, check=True, timeout=10)
         for schema, key, value in [
             ("org.gnome.shell", "enabled-extensions", json.dumps([metadata['uuid']])),
-            ("org.gnome.desktop.interface", "enable-animations", "false")]:
+            ("org.gnome.desktop.interface", "enable-animations", "true")]:
             subprocess.run(["gsettings", "set", schema, key, value], env=env, check=True, timeout=10)
-        bus_config = base / 'session.conf'
-        bus_config.write_text('''<busconfig><type>session</type><listen>unix:tmpdir=/tmp</listen>
-<auth>EXTERNAL</auth><policy context="default"><allow send_destination="*"/>
-<allow receive_sender="*"/><allow own="*"/></policy></busconfig>''')
+        bus_config, _ = write_private_bus_config(base, 'session')
         # No activation service directories: every fixture is explicitly spawned.
         # This also prevents a test bus from asking the host user manager to start units.
         automation, marker = {
@@ -389,7 +462,10 @@ def main():
             'preferences': ('desktop-preferences.js', 'UNITE_PREFERENCES_COMPONENT_PASS '),
             'conflict': ('desktop-conflict.js', 'UNITE_CONFLICT_PASS '),
         }[args.scenario]
-        command = ["/usr/bin/dbus-run-session", f"--config-file={bus_config}", "--", "gnome-shell", "--headless",
+        # Follow the native test tool's animated startup profile. An immediate
+        # startup can finish while Shell asynchronously imports its automation
+        # module, before Shell connects the startup-complete callback.
+        command = ["/usr/bin/dbus-run-session", f"--config-file={bus_config}", "--", "gnome-shell", "--force-animations", "--headless",
                    "--virtual-monitor", "2560x1440", "--virtual-monitor", "1920x1080",
                    "--wayland-display", "unite-acceptance", "--automation-script", str(ROOT / 'tests' / automation)]
         process = subprocess.Popen(command, env=env, stdout=subprocess.PIPE,
@@ -402,7 +478,7 @@ def main():
             except ProcessLookupError:
                 pass
         try:
-            output, _ = process.communicate(timeout=90)
+            output, _ = process.communicate(timeout=DESKTOP_TIMEOUT_SECONDS)
         except subprocess.TimeoutExpired:
             timeout = True
             kill_group(signal.SIGTERM)

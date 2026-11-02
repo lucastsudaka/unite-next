@@ -1,5 +1,6 @@
 """Ownership/conflict and real worker supervision tests; no desktop writes."""
 import importlib.util
+import errno
 import json
 import os
 from pathlib import Path
@@ -85,21 +86,19 @@ class OwnershipTests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
 
     def test_unresponsive_server_worker_is_killed_reaped_and_connection_closes(self):
-        # Own a fresh socket; never connect to the user's X server.
-        directory = Path("/tmp/.X11-unix")
-        if not directory.is_dir():
-            self.skipTest("X11 socket directory unavailable")
-        server = socket.socket(socket.AF_UNIX)
-        owned_path = None
-        for number in range(30000, 31000):
-            path = directory / f"X{number}"
+        # Own a loopback-only fake X server; no shared X11 directory or display.
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.addCleanup(server.close)
+        number = None
+        for candidate in range(30000, 31000):
             try:
-                server.bind(str(path))
-                owned_path = path
+                server.bind(('127.0.0.1', 6000 + candidate))
+                number = candidate
                 break
-            except OSError:
-                continue
-        self.assertIsNotNone(owned_path, "No private X11 socket available")
+            except OSError as error:
+                if error.errno != errno.EADDRINUSE:
+                    raise
+        self.assertIsNotNone(number, "No private loopback X11 port available")
         try:
             server.listen(1)
             server.settimeout(5)
@@ -120,7 +119,7 @@ class OwnershipTests(unittest.TestCase):
             thread = threading.Thread(target=stall)
             thread.start()
             with tempfile.TemporaryDirectory(prefix="unite-x11-timeout-") as home:
-                env = {**os.environ, "DISPLAY": f"unix/:{number}", "HOME": home,
+                env = {**os.environ, "DISPLAY": f"inet/127.0.0.1:{number}", "HOME": home,
                        "XAUTHORITY": f"{home}/authority"}
                 start = time.monotonic()
                 result = subprocess.run([sys.executable, HELPER], input=json.dumps(
@@ -136,8 +135,6 @@ class OwnershipTests(unittest.TestCase):
             self.assertLess(elapsed, 4, "Worker supervision exceeded its external bound")
         finally:
             server.close()
-            if owned_path:
-                owned_path.unlink()
 
 
 if __name__ == "__main__":

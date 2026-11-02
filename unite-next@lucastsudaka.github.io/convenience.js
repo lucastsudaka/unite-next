@@ -1,10 +1,8 @@
 import Gio from 'gi://Gio'
-import GLib from 'gi://GLib'
 
 class SettingsAdapter {
-  constructor(settings, writable = true) {
+  constructor(settings) {
     this._settings = settings
-    this._writable = writable
   }
 
   exists(key) {
@@ -13,18 +11,6 @@ class SettingsAdapter {
 
   getSetting(key) {
     if (this.exists(key)) return this._settings.get_value(key).deepUnpack()
-  }
-
-  setSetting(key, value) {
-    if (!this._writable || !this.exists(key)) return false
-
-    const schemaKey = this._settings.settings_schema.get_key(key)
-    const variant = new GLib.Variant(schemaKey.get_value_type().dup_string(), value)
-    if (!schemaKey.range_check(variant)) {
-      throw new RangeError(`Invalid value for setting ${key}`)
-    }
-
-    return this._settings.set_value(key, variant)
   }
 
   connect(name, callback) {
@@ -61,12 +47,12 @@ export function adaptSettings(settings) {
 
 export function getPreferences() {
   const settings = new Gio.Settings({ schema_id: 'org.gnome.desktop.wm.preferences' })
-  return new PreferencesAdapter(settings, false)
+  return new PreferencesAdapter(settings)
 }
 
 export function getInterface() {
   const settings = new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' })
-  return new SettingsAdapter(settings, false)
+  return new SettingsAdapter(settings)
 }
 
 export function getDir() {

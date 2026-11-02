@@ -1,4 +1,4 @@
-// REQ-PANEL-001/THEME-001/VERIFY-001: temporary private DisplayConfig acceptance.
+// REQ-FEATURE-003/PANEL-001/THEME-001/VERIFY-001: private state/DisplayConfig acceptance.
 // Signatures: Mutter 50.5/51.0 data/dbus-interfaces/org.gnome.Mutter.DisplayConfig.xml.
 import Gio from 'gi://Gio'
 import GLib from 'gi://GLib'
@@ -6,7 +6,7 @@ import Meta from 'gi://Meta'
 import St from 'gi://St'
 import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js'
-import { runInput } from './desktop-input.js'
+import { inputSceneReady, runInput } from './desktop-input.js'
 
 const NAME = 'org.gnome.Mutter.DisplayConfig'
 const PATH = '/org/gnome/Mutter/DisplayConfig'
@@ -79,6 +79,130 @@ function geometry(logical) {
     .sort((left, right) => left[0].localeCompare(right[0]))
 }
 
+function moveFixtureToMonitor(win, monitor) {
+  // Mutter dereferences the source monitor without a null check. A recently
+  // unmanaged fixture reports -1 and must fail before crossing that native API.
+  assert(win.get_monitor() >= 0, 'Cannot move an unmanaged fixture window to another monitor')
+  const count = global.display.get_n_monitors()
+  assert(Number.isInteger(monitor) && monitor >= 0 && monitor < count,
+    `Invalid fixture monitor destination: ${monitor}; native monitor count: ${count}`)
+  win.move_to_monitor(monitor)
+}
+
+const frameRect = win => {
+  const { x, y, width, height } = win.get_frame_rect()
+  return { x, y, width, height }
+}
+
+export async function runWindowStateTransitions(owner, settings, win) {
+  const initial = await state()
+  const original = applyLogical(initial.logical, currentPhysical(initial))
+  const properties = globalProperties(initial)
+  const savedRect = frameRect(win)
+  const savedFlags = win.get_maximize_flags()
+  const savedSettings = ['restrict-to-primary-screen', 'show-window-buttons', 'hide-window-titlebars']
+    .map(key => [key, settings.get_user_value(key)])
+  const controls = Main.panel.statusArea.uniteNextWindowControls
+  const scenarios = []
+  const errors = []
+  const handlers = []
+  let monitorChanged = false
+  const observe = (object, signal, callback) => handlers.push([object, object.connect(signal, callback)])
+  try {
+    settings.set_string('hide-window-titlebars', 'never')
+    settings.set_boolean('restrict-to-primary-screen', false)
+    settings.set_string('show-window-buttons', 'maximized')
+    win.set_unmaximize_flags(Meta.MaximizeFlags.BOTH)
+    Main.activateWindow(win)
+    await until(() => !win.maximized_horizontally && !win.maximized_vertically && inputSceneReady(win),
+      'normal fixture before same-size maximization')
+    const { x, y, width, height } = win.get_work_area_current_monitor()
+    const workArea = { x, y, width, height }
+    win.move_resize_frame(false, x, y, width, height)
+    await until(() => JSON.stringify(frameRect(win)) === JSON.stringify(workArea) && inputSceneReady(win),
+      'normal fixture already fills the work area')
+    assert(!controls.container.visible, 'Normal work-area-sized window exposes maximized controls')
+    let sizeEvents = 0
+    observe(win, 'size-changed', () => sizeEvents++)
+    win.set_maximize_flags(Meta.MaximizeFlags.BOTH)
+    await until(() => win.maximized_horizontally && win.maximized_vertically && inputSceneReady(win),
+      'same-size maximization state')
+    await until(() => controls.container.visible, 'maximization refresh without a size event')
+    assert(sizeEvents === 0 && JSON.stringify(frameRect(win)) === JSON.stringify(workArea),
+      'Maximization regression fixture unexpectedly changed size or geometry')
+    scenarios.push({ name: 'maximization without resize', frame: frameRect(win), sizeEvents,
+      controlsVisible: controls.container.visible })
+    print(`UNITE_WINDOW_STATE_SCENARIO ${JSON.stringify(scenarios.at(-1))}`)
+
+    win.set_unmaximize_flags(Meta.MaximizeFlags.BOTH)
+    await until(() => !win.maximized_horizontally && !win.maximized_vertically && inputSceneReady(win),
+      'normal fixture before primary-only change')
+    const monitor = Main.layoutManager.primaryMonitor
+    const primaryIndex = Main.layoutManager.primaryIndex
+    const secondaryIndex = Main.layoutManager.monitors.findIndex((_monitor, index) => index !== primaryIndex)
+    // Earlier restore operations can leave a different native preferred monitor.
+    // Mutter skips updating that preference when moving to the current monitor;
+    // make two real moves before measuring a stationary reconfiguration.
+    moveFixtureToMonitor(win, secondaryIndex)
+    await until(() => win.get_monitor() === secondaryIndex && inputSceneReady(win),
+      'primary-only fixture leaves its inherited preferred monitor')
+    moveFixtureToMonitor(win, primaryIndex)
+    await until(() => win.get_monitor() === primaryIndex && inputSceneReady(win),
+      'primary-only fixture establishes its preferred monitor')
+    const normalRect = { x: monitor.x + 200, y: monitor.y + 200, width: 640, height: 480 }
+    win.move_resize_frame(false, normalRect.x, normalRect.y, normalRect.width, normalRect.height)
+    await until(() => win.is_on_primary_monitor() && inputSceneReady(win) &&
+      JSON.stringify(frameRect(win)) === JSON.stringify(normalRect), 'stationary primary fixture')
+    settings.set_boolean('restrict-to-primary-screen', true)
+    settings.set_string('show-window-buttons', 'always')
+    await until(() => controls.container.visible, 'primary fixture controls before reconfiguration')
+    const before = frameRect(win)
+    const snapshot = await state()
+    const switched = applyLogical(snapshot.logical, currentPhysical(snapshot))
+      .map(([lx, ly, scale, transform, primary, monitors]) => [lx, ly, scale, transform, !primary, monitors])
+    let enteredEvents = 0
+    sizeEvents = 0
+    observe(global.display, 'window-entered-monitor', (_display, _index, window) => {
+      if (window === win) enteredEvents++
+    })
+    monitorChanged = true
+    await apply(switched, properties)
+    await until(() => !win.is_on_primary_monitor() && inputSceneReady(win), 'primary-only configuration applied')
+    await until(() => !controls.container.visible, 'stationary window loses primary-only controls')
+    assert(JSON.stringify(frameRect(win)) === JSON.stringify(before) && sizeEvents === 0,
+      'Primary-only regression fixture changed window geometry')
+    scenarios.push({ name: 'primary-only monitor change', frame: frameRect(win), sizeEvents,
+      enteredEvents, primary: win.is_on_primary_monitor(), controlsVisible: controls.container.visible })
+    print(`UNITE_WINDOW_STATE_SCENARIO ${JSON.stringify(scenarios.at(-1))}`)
+  } catch (error) {
+    errors.push(error)
+  } finally {
+    const cleanup = async callback => { try { await callback() } catch (error) { errors.push(error) } }
+    for (const [object, id] of handlers) await cleanup(() => object.disconnect(id))
+    if (monitorChanged) await cleanup(async () => {
+      await apply(original, properties)
+      const restored = await state()
+      assert(JSON.stringify(geometry(restored.logical)) === JSON.stringify(geometry(initial.logical)),
+        'State-transition regression did not restore the original monitor configuration')
+    })
+    await cleanup(async () => {
+      win.set_unmaximize_flags(Meta.MaximizeFlags.BOTH)
+      await until(() => !win.maximized_horizontally && !win.maximized_vertically && inputSceneReady(win),
+        'state-transition restoration starts from a normal fixture')
+      win.move_resize_frame(false, savedRect.x, savedRect.y, savedRect.width, savedRect.height)
+      if (savedFlags) win.set_maximize_flags(savedFlags)
+      Main.activateWindow(win)
+      await until(() => win.get_maximize_flags() === savedFlags && inputSceneReady(win),
+        'state-transition fixture restored')
+    })
+    for (const [key, value] of savedSettings) await cleanup(() =>
+      value === null ? settings.reset(key) : settings.set_value(key, value))
+  }
+  if (errors.length) throw new AggregateError(errors,
+    `Native window-state acceptance failed: ${errors.map(error => error.message).join('; ')}`)
+  return scenarios
+}
+
 export async function runMonitors(owner, settings, wm, win) {
   assert(GLib.getenv('UNITE_PRIVATE_TEST') === '1', 'Monitor tests require a private session')
   const initial = await state()
@@ -86,6 +210,7 @@ export async function runMonitors(owner, settings, wm, win) {
   const original = applyLogical(initial.logical, physical)
   const properties = globalProperties(initial)
   const scenarios = []
+  let stateTransitions = []
   const pending = []
   const errors = []
   let modified = false
@@ -120,9 +245,13 @@ export async function runMonitors(owner, settings, wm, win) {
     reportPending('Scale 2 is not advertised by the private virtual modes under their global-scale constraint')
 
   try {
+    stateTransitions = await runWindowStateTransitions(owner, settings, win)
     settings.set_string('notifications-position', 'right')
     for (const [primaryScale, otherScale] of targets) {
+      await until(() => inputSceneReady(win), 'previous fixture scene completed before monitor change')
       const topHeight = otherOutput.mode[2] / (layoutMode === 1 ? otherScale : 1)
+      const primaryWidth = primaryOutput.mode[1] / (layoutMode === 1 ? primaryScale : 1)
+      const primaryHeight = primaryOutput.mode[2] / (layoutMode === 1 ? primaryScale : 1)
       assert(Number.isInteger(topHeight) && topHeight > 0, 'Virtual mode has invalid logical monitor height')
       const configuration = [
         [0, 0, otherScale, 0, false, [[otherOutput.spec[0], otherOutput.mode[0], otherOutput.properties]]],
@@ -131,17 +260,22 @@ export async function runMonitors(owner, settings, wm, win) {
       modified = true // An apply error may still require restoration of observed state.
       await apply(configuration, properties)
       await until(() => Main.layoutManager.primaryMonitor?.y === topHeight &&
-        Main.panel.get_transformed_position()[1] === topHeight,
+        Main.layoutManager.primaryMonitor.width === primaryWidth &&
+        Main.layoutManager.primaryMonitor.height === primaryHeight &&
+        Main.panel.get_transformed_position()[1] === topHeight &&
+        Main.panel.get_transformed_size()[0] === primaryWidth,
       `vertical primary panel at stage Y ${topHeight}, scale ${primaryScale}`)
       const current = await state()
       assert(JSON.stringify(geometry(current.logical)) === JSON.stringify(geometry(configuration)),
         'Applied logical monitor geometry/scale differs from the requested temporary configuration')
-      win.move_to_monitor(Main.layoutManager.primaryIndex)
+      await until(() => inputSceneReady(win), 'monitor relayout released overview and window animations')
+      moveFixtureToMonitor(win, Main.layoutManager.primaryIndex)
       win.unminimize()
       Main.activateWindow(win)
       win.set_maximize_flags(Meta.MaximizeFlags.BOTH)
       await until(() => owner.context.focusWindow?.win === win && win.is_on_primary_monitor() &&
-        win.maximized_horizontally && win.maximized_vertically, 'fixture maximized on vertical primary monitor')
+        win.maximized_horizontally && win.maximized_vertically && inputSceneReady(win),
+      'fixture scene maximized on vertical primary monitor')
       const input = await runInput(owner, settings, wm, win)
       const themeScale = St.ThemeContext.get_for_stage(global.stage).scale_factor
       // Mutter keeps UI scale at 1 when stage views perform output scaling;
@@ -171,15 +305,17 @@ export async function runMonitors(owner, settings, wm, win) {
         const expected = initial.logical.find(item => item[4])
         await until(() => Main.layoutManager.primaryMonitor?.x === expected[0] &&
           Main.layoutManager.primaryMonitor?.y === expected[1], 'original primary monitor restored')
-        win.move_to_monitor(initialMonitor)
+        moveFixtureToMonitor(win, initialMonitor)
         Main.activateWindow(win)
         if (initialMaximized) win.set_maximize_flags(Meta.MaximizeFlags.BOTH)
+        await until(() => win.get_monitor() === initialMonitor && inputSceneReady(win),
+          'original fixture monitor and scene restored')
       } catch (error) { errors.push(error) }
     }
   }
   if (errors.length) throw new AggregateError(errors,
     `Native monitor acceptance failed: ${errors.map(error => error.message).join('; ')}`)
-  const result = { scenarios, pending }
+  const result = { scenarios, stateTransitions, pending }
   print(`${pending.length ? 'UNITE_MONITORS_PENDING_RESULT' : 'UNITE_MONITORS_PASS'} ${JSON.stringify(result)}`)
   return result
 }

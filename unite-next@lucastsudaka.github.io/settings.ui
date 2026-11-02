@@ -2,7 +2,8 @@
 <interface domain="unite-next">
   <requires lib="gtk" version="4.0" />
   <object class="GtkAdjustment" id="maxwidth_appmenu_adjustment">
-    <property name="upper">1000</property>
+    <property name="lower">-2147483648</property>
+    <property name="upper">2147483647</property>
     <property name="step-increment">1</property>
     <property name="page-increment">10</property>
   </object>
@@ -29,23 +30,6 @@
           <object class="AdwComboRow" id="notifications_position">
             <property name="title" translatable="yes">Notifications position</property>
             <property name="subtitle" translatable="yes">System notification messages position</property>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
-      <object class="AdwPreferencesGroup">
-        <property name="title" translatable="yes">System Tray</property>
-        <child>
-          <object class="AdwSwitchRow" id="show_legacy_tray">
-            <property name="title" translatable="yes">Enable tray</property>
-            <property name="subtitle" translatable="yes">Show system tray in top panel</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwSwitchRow" id="greyscale_tray_icons">
-            <property name="title" translatable="yes">Greyscale icons</property>
-            <property name="subtitle" translatable="yes">Convert tray icons to greyscale</property>
           </object>
         </child>
       </object>
@@ -124,7 +108,7 @@
         <child>
           <object class="AdwSwitchRow" id="restrict_to_primary_screen">
             <property name="title" translatable="yes">Primary screen only</property>
-            <property name="subtitle" translatable="yes">Restrict functionalities to the primary screen</property>
+            <property name="subtitle" translatable="yes">Limit window actions and panel controls to the primary screen, including Always</property>
           </object>
         </child>
         <child>
@@ -144,6 +128,7 @@
     <child>
       <object class="AdwPreferencesGroup">
         <property name="title" translatable="yes">Titlebars</property>
+        <property name="description" translatable="yes">GTK application decorations remain visible while Primary screen only is enabled.</property>
         <child>
           <object class="AdwComboRow" id="hide_window_titlebars">
             <property name="title" translatable="yes">Hide titlebars</property>

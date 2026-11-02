@@ -4,8 +4,16 @@ import GLib from 'gi://GLib'
 import Shell from 'gi://Shell'
 import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 import { waitForJson, writeJson } from './screenshot-protocol.mjs'
+import { inputSceneReady } from './desktop-input.js'
 
 function assert(value, message) { if (!value) throw new Error(message) }
+
+function captureSceneReady(window) {
+  // Mapping starts with a visible, transparent actor; destruction keeps the
+  // previous window painted until the native effect owner completes it.
+  return inputSceneReady(window) && Main.wm._mapping.size === 0 && Main.wm._destroying.size === 0
+}
+
 async function bounded(promise, description) {
   let timeout = 0
   try {
@@ -61,7 +69,7 @@ export async function runScreenshots(owner, desktopWindow) {
   const directory = Gio.File.new_for_path(output)
   assert(directory.has_prefix(Gio.File.new_for_path(GLib.get_home_dir())), 'Captures must remain in the private HOME')
   Main.activateWindow(desktopWindow)
-  await frame(() => desktopWindow.has_focus() && !Main.overview.visibleTarget, 'private desktop frame')
+  await frame(() => desktopWindow.has_focus() && captureSceneReady(desktopWindow), 'settled private desktop frame')
   const monitor = Main.layoutManager.primaryMonitor
   assert(monitor && monitor.width > 0 && monitor.height > 0, 'A real primary monitor is required')
   await capture(directory.get_child('screenshot.png'), 'screenshot_area', monitor.x, monitor.y, monitor.width, monitor.height)
@@ -107,7 +115,7 @@ export async function runScreenshots(owner, desktopWindow) {
       return window && window.get_compositor_private()?.mapped
     }, 'mapped native preferences window')
     Main.activateWindow(window)
-    await frame(() => window.has_focus(), 'focused native preferences frame')
+    await frame(() => window.has_focus() && captureSceneReady(window), 'settled native preferences frame')
     await capture(directory.get_child('settings.png'), 'screenshot_window', true, false)
     writeJson(ack, { token, captured: true })
   } catch (error) {
@@ -132,6 +140,7 @@ export async function runScreenshots(owner, desktopWindow) {
   }
   if (errors.length) throw new AggregateError(errors, `Native screenshot capture failed: ${errors.map(error => error.message).join('; ')}`)
   Main.activateWindow(desktopWindow)
-  await frame(() => desktopWindow.has_focus(), 'desktop focus restored after capture')
+  await frame(() => desktopWindow.has_focus() && captureSceneReady(desktopWindow),
+    'settled desktop frame restored after capture')
   print('UNITE_SCREENSHOTS_PASS screenshot.png settings.png')
 }

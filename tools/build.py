@@ -22,9 +22,13 @@ ROOT = Path(__file__).resolve().parents[1]
 EXTENSION = "unite-next@lucastsudaka.github.io"
 LANGUAGES = ("cs", "fr", "ko", "nl", "pt_BR")
 REQUIRED_FILES = ("extension.js", "prefs.js", "metadata.json", "settings.ui",
-                  "animation.js", "buttons.js", "convenience.js", "handlers.js",
+                  "buttons.js", "convenience.js", "resources.js", "settings.js",
+                  "features.js", "gtk-styles.js", "shell-styles.js", "styles.js",
                   "layout.js", "panel.js", "theme.js", "window.js",
-                  "x11.py",
+                  "button-widgets.js", "panel-features.js", "layout-features.js",
+                  "extension-lifecycle.js", "window-policy.js", "decorations.js",
+                  "preferences-widget.js",
+                  "x11.py", "gtk-files.py",
                   "schemas/org.gnome.shell.extensions.unite-next.gschema.xml")
 PARSE_JS = """
 const GLib = imports.gi.GLib;
@@ -72,9 +76,10 @@ def source_files(root=ROOT):
     source = root / EXTENSION
     paths = {path for pattern in ("*.js", "*.ui", "metadata.json")
              for path in source.glob(pattern)}
-    helper = source / "x11.py"
-    if helper.exists():
-        paths.add(helper)
+    for name in ("x11.py", "gtk-files.py"):
+        helper = source / name
+        if helper.exists():
+            paths.add(helper)
     for directory in ("styles", "themes", "schemas"):
         base = source / directory
         if base.is_symlink() or not base.is_dir():
@@ -112,6 +117,49 @@ def source_files(root=ROOT):
     return files
 
 
+def validate_module_imports(imported, source, files):
+    """Check static import/re-export closure and native process boundaries.
+
+    The GJS parser supplies module requests; comments and source formatting do
+    not affect this graph. Shared Gio/GLib modules may serve both processes.
+    """
+    graph = {name: [] for name in files if name.endswith(".js")}
+    for item in imported:
+        name = Path(item["path"]).relative_to(source).as_posix()
+        target = item["specifier"]
+        if target.startswith("."):
+            target = os.path.normpath((PurePosixPath(name).parent / target).as_posix())
+            if target not in graph:
+                raise ValueError(f"Unresolved relative import in {name}: {item['specifier']}")
+        graph[name].append(target)
+
+    boundaries = (
+        ("extension.js", {"Gtk", "Gdk", "Adw"}, "resource:///org/gnome/Shell/Extensions/"),
+        ("prefs.js", {"St", "Shell", "Meta", "Clutter"}, "resource:///org/gnome/shell/"),
+    )
+    # These owners are imported as real ESM by fast scenarios. Native UI types
+    # and services enter their factories through the desktop composition only.
+    isolated = ("resources.js", "settings.js", "features.js", "gtk-styles.js",
+                "window-policy.js", "decorations.js", "extension-lifecycle.js",
+                "button-widgets.js", "panel-features.js", "layout-features.js")
+    boundaries += tuple((name, {"Gtk", "Gdk", "Adw", "St", "Shell", "Meta", "Clutter"}, "resource://")
+                        for name in isolated if name in graph)
+    for entry, forbidden_gi, forbidden_resource in boundaries:
+        pending, visited = [entry], set()
+        while pending:
+            name = pending.pop()
+            if name in visited:
+                continue
+            visited.add(name)
+            for target in graph[name]:
+                library = target.removeprefix("gi://").split("?", 1)[0]
+                if (target.startswith("gi://") and library in forbidden_gi or
+                        target.startswith(forbidden_resource)):
+                    raise ValueError(f"{entry} imports unsupported process dependency {target} via {name}")
+                if target in graph:
+                    pending.append(target)
+
+
 def check(root=ROOT, version=None):
     metadata = identity(root, version)
     files = source_files(root)
@@ -144,13 +192,7 @@ def check(root=ROOT, version=None):
         (snapshot / "unite-next.pot").write_bytes((root / "unite-next.pot").read_bytes())
         imported = run(["gjs", "-c", PARSE_JS] +
                        [str(source / name) for name in files if name.endswith(".js")], cwd=snapshot)
-        for item in json.loads(imported):
-            target = item["specifier"]
-            if target.startswith("."):
-                name = Path(item["path"]).relative_to(source).as_posix()
-                normalized = os.path.normpath((PurePosixPath(name).parent / target).as_posix())
-                if normalized not in files:
-                    raise ValueError(f"Unresolved relative import in {name}: {target}")
+        validate_module_imports(json.loads(imported), source, files)
         run(["gjs", "-m", str(ROOT / "tools/check-themes.mjs"), str(source)], cwd=snapshot)
         run(["glib-compile-schemas", "--strict", "--dry-run", str(source / "schemas")], cwd=snapshot)
         for name in catalogs:
@@ -186,6 +228,18 @@ def validate_archive(path, expected):
         for name, data in expected.items():
             if archive.read(name) != data:
                 raise ValueError(f"Archive bytes differ from selected source: {name}")
+
+
+def verify_source_archive(root, archive):
+    """Validate one existing ZIP against selected sources without rebuilding it."""
+    metadata, files, catalogs = check(root)
+    expected = dict(files)
+    for language in LANGUAGES:
+        expected[f"locale/{language}/LC_MESSAGES/{metadata['gettext-domain']}.mo"] = translations.run(
+            ["msgfmt", "--check", "--output-file=-", "-"], cwd=root,
+            data=catalogs[f"{language}.po"])
+    validate_archive(archive, expected)
+    return {"uuid": metadata["uuid"], "version": metadata["version"], "payload_files": len(expected)}
 
 
 def package(root=ROOT, output_dir=None, version=None):

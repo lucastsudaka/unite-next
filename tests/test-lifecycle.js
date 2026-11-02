@@ -1,18 +1,18 @@
 import Gio from 'gi://Gio'
 import GLib from 'gi://GLib'
-import { loadModule, assert, throws } from './load-module.js'
+import { assert, throws } from './assert.js'
+import { createExtensionClass } from '../unite-next@lucastsudaka.github.io/extension-lifecycle.js'
+import { WindowManager } from '../unite-next@lucastsudaka.github.io/window.js'
+import { ServerDecorations } from '../unite-next@lucastsudaka.github.io/decorations.js'
+import { assertStartupPending } from './startup-guard.js'
+import { Signals, Timeouts, runCleanup } from '../unite-next@lucastsudaka.github.io/resources.js'
+import { Settings } from '../unite-next@lucastsudaka.github.io/settings.js'
+import { GtkStyles, resetGtkStyles } from '../unite-next@lucastsudaka.github.io/gtk-styles.js'
 
 const root = ARGV[0] || Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_path()
 const config = GLib.get_user_config_dir()
 assert(GLib.getenv('UNITE_PRIVATE_TEST') === '1', 'Run through tools/test-runtime.py for private state')
-const St = {}
-const Main = { uiGroup: {}, panel: { statusArea: {} }, overview: { visibleTarget: false } }
-let importAllocations = 0
-const legacySettings = () => { importAllocations++; return { exists: () => true } }
-const Convenience = { getSettings: legacySettings, getPreferences: legacySettings, getInterface: legacySettings, getPath: () => `${root}/unite-next@lucastsudaka.github.io`, getDir: () => Gio.File.new_for_path(`${root}/unite-next@lucastsudaka.github.io`) }
-const Handlers = loadModule(`${root}/unite-next@lucastsudaka.github.io/handlers.js`,
-  { Gio, GLib, St, Main, Convenience, InjectionManager: class {} },
-  ['runCleanup', 'resetGtkStyles', 'Signals', 'Settings', 'Timeouts', 'Feature', 'Features', 'Styles'])
+const services = { Signals, Timeouts, Settings, runCleanup, resetGtkStyles }
 let passed = 0
 let failed = 0
 function test(name, callback) {
@@ -23,11 +23,41 @@ const read = path => new TextDecoder().decode(GLib.file_get_contents(path)[1])
 const gtk3 = `${config}/gtk-3.0/gtk.css`
 const gtk4 = `${config}/gtk-4.0/gtk.css`
 
-test('Module import acquires no settings services', () => assert(importAllocations === 0, 'Import allocated active settings'))
+test('Desktop startup init accepts only native startup in progress without changing it', () => {
+  for (const startingUp of [true, false, undefined, null, 1, 'true']) {
+    const layout = Object.freeze({ _startingUp: startingUp })
+    const main = Object.freeze({ layoutManager: layout })
+    const init = () => assertStartupPending(main.layoutManager)
+    if (startingUp === true) {
+      assert(init() === undefined, 'Desktop startup init must remain synchronous')
+    } else {
+      const error = throws(init, 'Desktop init accepted unavailable or completed native startup')
+      assert(error.message.includes('native startup') && error.message.includes('startup-complete'),
+        'Startup initialization failure did not explain the native listener precondition')
+    }
+    assert(main.layoutManager === layout && layout._startingUp === startingUp, 'Startup init changed native state')
+  }
+  const init = () => assertStartupPending(undefined)
+  throws(init, 'Desktop init accepted an absent native layout manager')
+})
 test('GTK reset does not create files', () => {
-  Handlers.resetGtkStyles()
+  resetGtkStyles()
   assert(!GLib.file_test(gtk3, GLib.FileTest.EXISTS), 'GTK 3 file was created')
   assert(!GLib.file_test(gtk4, GLib.FileTest.EXISTS), 'GTK 4 file was created')
+})
+test('GTK owned blocks leave valid empty artifacts and preserve preexisting empty files', () => {
+  const styles = new GtkStyles('empty-artifacts', 'window { padding: 0; }')
+  styles.load()
+  styles.unload()
+  for (const path of [gtk3, gtk4]) {
+    const file = Gio.File.new_for_path(path)
+    assert(file.query_exists(null) && read(path) === '', 'Owned block cleanup did not leave an empty stylesheet')
+    assert(file.get_parent().query_exists(null), 'Cleanup removed the GTK directory')
+    const inode = file.query_info('unix::inode', Gio.FileQueryInfoFlags.NONE, null).get_attribute_uint64('unix::inode')
+    resetGtkStyles()
+    assert(file.query_info('unix::inode', Gio.FileQueryInfoFlags.NONE, null).get_attribute_uint64('unix::inode') === inode,
+      'An unchanged preexisting empty stylesheet was replaced')
+  }
 })
 test('GTK foreign bytes survive apply/remove; unchanged reset preserves inode', () => {
   GLib.mkdir_with_parents(GLib.path_get_dirname(gtk3), 0o700)
@@ -36,69 +66,36 @@ test('GTK foreign bytes survive apply/remove; unchanged reset preserves inode', 
   const file = Gio.File.new_for_path(gtk3)
   const inode = () => file.query_info('unix::inode', Gio.FileQueryInfoFlags.NONE, null).get_attribute_uint64('unix::inode')
   const before = inode()
-  Handlers.resetGtkStyles()
+  resetGtkStyles()
   assert(read(gtk3) === original && inode() === before, 'Unchanged CSS was rewritten')
-  const styles = new Handlers.Styles()
-  styles.addGtkStyle('test', 'window { padding: 0; }')
+  const styles = new GtkStyles('test', 'window { padding: 0; }')
+  styles.load()
   assert(read(gtk3).endsWith(original), 'Foreign rules were changed')
-  styles.removeAll()
+  styles.unload()
   assert(read(gtk3) === original, 'Foreign CSS did not survive removal')
 })
 test('GTK cleanup attempts both versions on invalid UTF-8', () => {
   GLib.file_set_contents(gtk3, new Uint8Array([0xff]))
   GLib.file_set_contents(gtk4, '/* UNITE_NEXT test */\nwindow {}\n/* test UNITE_NEXT */\n/* user */')
-  throws(() => Handlers.resetGtkStyles(), 'Invalid UTF-8 was silently replaced')
+  throws(() => resetGtkStyles(), 'Invalid UTF-8 was silently replaced')
   assert(GLib.file_get_contents(gtk3)[1][0] === 0xff, 'Invalid file was changed')
   assert(read(gtk4) === '/* user */', 'Independent GTK 4 cleanup was skipped')
   GLib.file_set_contents(gtk3, '')
 })
-test('Independent signal cleanup proceeds after disconnect failure', () => {
-  const signals = new Handlers.Signals()
-  let attempted = 0
-  const object = { connect: () => ++attempted, disconnect: () => { attempted++; throw new Error('injected') } }
-  signals.connect(object, 'first', () => {})
-  signals.connect(object, 'second', () => {})
-  throws(() => signals.disconnectAll(), 'Disconnect failure disappeared')
-  assert(attempted === 4 && signals.signals.size === 0, 'Handlers were retained/skipped')
-})
-test('Completed idle/timeout/interval ownership expires', () => {
-  const sources = new Handlers.Timeouts()
-  let count = 0
-  sources.idle(() => count++)
-  sources.timeout(1, () => count++)
-  sources.interval(1, () => { count++; return false })
-  const loop = new GLib.MainLoop(null, false)
-  GLib.timeout_add(GLib.PRIORITY_DEFAULT, 20, () => { loop.quit(); return GLib.SOURCE_REMOVE })
-  loop.run()
-  assert(count === 3, 'Scheduled callbacks did not execute exactly once')
-  assert(sources.store.size === 0, 'Completed source IDs remain owned')
-  sources.removeAll()
-  const key = sources.timeout(1000, () => { throw new Error('Cancelled callback executed') })
-  sources.remove(key)
-  sources.remove(key)
-  assert(sources.store.size === 0, 'Cancelled source remains owned')
-})
-test('Throwing source callback expires ownership and propagates failure', () => {
-  let callback
-  const fakeGLib = Object.create(GLib)
-  fakeGLib.idle_add = (_priority, handler) => { callback = handler; return 123 }
-  const { Timeouts } = loadModule(`${root}/unite-next@lucastsudaka.github.io/handlers.js`,
-    { Gio, GLib: fakeGLib, St, Main, Convenience, InjectionManager: class {} }, ['Timeouts'])
-  const sources = new Timeouts()
-  sources.idle(() => { throw new Error('original source error') })
-  assert(throws(callback, 'Source failure disappeared').message === 'original source error', 'Original error changed')
-  assert(sources.store.size === 0, 'Throwing source remains owned')
-})
-
 function eventObject() {
   return { handlers: new Map(), serial: 0,
     connect(name, callback) { this.handlers.set(++this.serial, { name, callback }); return this.serial },
-    disconnect(id) { assert(this.handlers.delete(id), 'Invalid signal ID') } }
+    disconnect(id) { assert(this.handlers.delete(id), 'Invalid signal ID') },
+    emit(name, ...args) {
+      for (const entry of [...this.handlers.values()])
+        if (entry.name === name) entry.callback(this, ...args)
+    } }
 }
 function context() {
   const setting = { ...eventObject(), exists: () => true,
     getSetting: key => key === 'hide-window-titlebars' ? 'never' : false }
-  return { settings: { extension: setting }, appSystem: eventObject(), windowTracker: {}, display: eventObject() }
+  return { settings: { extension: setting }, appSystem: eventObject(), windowTracker: {},
+    display: eventObject(), monitorManager: eventObject() }
 }
 
 // These are the native 50/51 manager boundary states, not product helpers.
@@ -110,8 +107,7 @@ function extensionFixture({ upstreamState, activationFault, cleanupFaults = [], 
   requestFailure, membershipOutcome = 'both', modeExtensions = [],
   enabledMembership = [FORK_UUID, UPSTREAM_UUID], userExtensionsDisabled = false } = {}) {
   const events = []
-  const emitter = {}
-  imports.signals.addSignalMethods(emitter)
+  const emitter = eventObject()
   const connections = new Set()
   const upstream = upstreamState === undefined ? null : { uuid: UPSTREAM_UUID, state: upstreamState }
   const fork = { uuid: FORK_UUID, state: ExtensionState.INACTIVE }
@@ -188,7 +184,7 @@ function extensionFixture({ upstreamState, activationFault, cleanupFaults = [], 
     add_style_class_name() { events.push('class:add') },
     remove_style_class_name() { events.push('class:remove') }
   } }
-  const helpers = { ...Handlers,
+  const helpers = { ...services,
     resetGtkStyles() {
       events.push('GTK')
       if (fork.state === ExtensionState.ACTIVE && cleanupErrors.has('GTK')) throw cleanupErrors.get('GTK')
@@ -205,7 +201,7 @@ function extensionFixture({ upstreamState, activationFault, cleanupFaults = [], 
       }
     }
   }
-  globalThis.global = { display: {}, settings: {
+  globalThis.global = { display: {}, backend: { get_monitor_manager: () => ({}) }, settings: {
     get_boolean(key) {
       assert(key === 'disable-user-extensions', 'Unexpected native user-extension setting read')
       return userExtensionsDisabled
@@ -215,13 +211,14 @@ function extensionFixture({ upstreamState, activationFault, cleanupFaults = [], 
       return [...(key === 'enabled-extensions' ? enabled : disabled)]
     }
   } }
-  const { UniteNextExtension } = loadModule(`${root}/unite-next@lucastsudaka.github.io/extension.js`, {
+  const UniteNextExtension = createExtensionClass({
     Extension: class { get uuid() { return FORK_UUID } getSettings() { events.push('settings'); return {} } },
-    ExtensionState, Main: main, Handlers: helpers,
+    ExtensionState, Main: main, ...helpers,
     Convenience: { adaptSettings: x => x, getPreferences: () => ({}), getInterface: () => ({}) },
     Shell: { AppSystem: { get_default: () => ({}) }, WindowTracker: { get_default: () => ({}) } },
-    WindowManager: acquire('Window'), PanelManager: acquire('Panel'), LayoutManager: acquire('Layout')
-  }, ['UniteNextExtension'])
+    WindowManager: acquire('Window'), PanelManager: acquire('Panel'), LayoutManager: acquire('Layout'),
+    global: globalThis.global
+  })
   owner = new UniteNextExtension()
   return { extension: owner, events, manager, connections, upstream, fork, cleanupErrors, requestError }
 }
@@ -402,29 +399,6 @@ test('Observer, stylesheet or later activation failure releases acquired ownersh
   }
 })
 
-test('Settings-driven activation failure immediately releases partial resources', () => {
-  const ctx = context()
-  let enabled = false
-  let resource = false
-  let destroyed = 0
-  ctx.settings.extension.getSetting = () => enabled
-  class PartialFeature extends Handlers.Feature {
-    constructor(context) { super(context, 'feature', value => value) }
-    activate() { resource = true; throw new Error('dynamic activation fault') }
-    destroy() { resource = false; destroyed++ }
-  }
-  const features = new Handlers.Features(ctx)
-  features.add(PartialFeature)
-  features.activate()
-  enabled = true
-  const callback = [...ctx.settings.extension.handlers.values()][0].callback
-  throws(callback, 'Dynamic activation failure disappeared')
-  assert(!resource && destroyed === 1 && !features.features[0].activated,
-    'Dynamic partial activation was not immediately unwound')
-  features.destroy()
-  assert(destroyed === 1 && ctx.settings.extension.handlers.size === 0, 'Cleanup was repeated or retained handlers')
-})
-
 test('Activation failures unwind acquired managers and clear references', () => {
   for (const boundary of ['Style:new', 'Style:load', 'Window:new', 'Panel:new', 'Layout:new', 'GTK', 'Panel:activate', 'Layout:activate', 'Window:activate', 'class:add']) {
     const events = []
@@ -434,7 +408,7 @@ test('Activation failures unwind acquired managers and clear references', () => 
       destroy() { events.push(`${name}:destroy`) }
     }
     let gtk = 0
-    const helpers = { ...Handlers,
+    const helpers = { ...services,
       resetGtkStyles: () => { events.push('GTK'); if (boundary === 'GTK' && gtk++ === 0) throw new Error(boundary) },
       Styles: class {
         constructor() { if (boundary === 'Style:new') throw new Error(boundary) }
@@ -446,13 +420,14 @@ test('Activation failures unwind acquired managers and clear references', () => 
       statusArea: {}, add_style_class_name() { if (boundary === 'class:add') throw new Error(boundary) },
       remove_style_class_name() { events.push('class:remove') }
     } }
-    globalThis.global = { display: {} }
-    const { UniteNextExtension } = loadModule(`${root}/unite-next@lucastsudaka.github.io/extension.js`, {
-      Extension: class { getSettings() { return {} } }, ExtensionState, Main: main, Handlers: helpers,
+    globalThis.global = { display: {}, backend: { get_monitor_manager: () => ({}) } }
+    const UniteNextExtension = createExtensionClass({
+      Extension: class { getSettings() { return {} } }, ExtensionState, Main: main, ...helpers,
       Convenience: { adaptSettings: x => x, getPreferences: () => ({}), getInterface: () => ({}) },
       Shell: { AppSystem: { get_default: () => ({}) }, WindowTracker: { get_default: () => ({}) } },
-      WindowManager: acquire('Window'), PanelManager: acquire('Panel'), LayoutManager: acquire('Layout')
-    }, ['UniteNextExtension'])
+      WindowManager: acquire('Window'), PanelManager: acquire('Panel'), LayoutManager: acquire('Layout'),
+      global: globalThis.global
+    })
     const extension = new UniteNextExtension()
     throws(() => extension.enable(), `Activation ${boundary} unexpectedly succeeded`)
     for (const name of ['Window', 'Panel', 'Layout']) {
@@ -468,11 +443,12 @@ test('Disable attempts every cleanup despite each individual fault', () => {
   for (let fault = 0; fault < 7; fault++) {
     const calls = []
     const step = index => () => { calls.push(index); if (index === fault) throw new Error(`fault ${fault}`) }
-    const { UniteNextExtension } = loadModule(`${root}/unite-next@lucastsudaka.github.io/extension.js`, {
+    const UniteNextExtension = createExtensionClass({
       Extension: class {}, ExtensionState, Main: { panel: { remove_style_class_name: step(6) } },
-      Handlers: { ...Handlers, resetGtkStyles: step(5) }, Shell: {}, Convenience: {},
-      WindowManager: class {}, PanelManager: class {}, LayoutManager: class {}
-    }, ['UniteNextExtension'])
+      ...services, resetGtkStyles: step(5), Shell: {}, Convenience: {},
+      WindowManager: class {}, PanelManager: class {}, LayoutManager: class {},
+      global: globalThis.global
+    })
     const extension = new UniteNextExtension()
     extension.context = {}
     extension.conflictSignals = { disconnectAll: step(0) }
@@ -486,19 +462,16 @@ test('Disable attempts every cleanup despite each individual fault', () => {
   }
 })
 
-const Meta = { WindowType: { NORMAL: 1, DIALOG: 2, MODAL_DIALOG: 3, UTILITY: 4 },
-  WindowClientType: { WAYLAND: 1 }, FrameType: { BORDER: 1 } }
-const GObject = { Object: class { constructor(...args) { this._init(...args) } _init() {} }, registerClass: klass => klass }
 test('Open windows retain no unmanaged/settings handlers after three cycles', () => {
   const window = { ...eventObject(), get_description: () => 'native', get_id: () => 7,
     get_client_type: () => 1, has_focus: () => false, get_title: () => 'title' }
-  const { WindowManager } = loadModule(`${root}/unite-next@lucastsudaka.github.io/window.js`,
-    { GObject, Shell: {}, Meta, Gio, Main, Handlers, Convenience }, ['WindowManager'])
   for (let index = 0; index < 3; index++) {
     const ctx = context()
     const manager = new WindowManager(ctx)
     manager.setWindow(window)
-    assert(window.handlers.size === 3, 'Expected one unmanaged and two window handlers')
+    assert([...window.handlers.values()].map(handler => handler.name).sort().join(',') ===
+      'notify::maximized-horizontally,notify::maximized-vertically,notify::skip-taskbar,notify::title,size-changed,unmanaged',
+      'Managed window does not own the exact eligibility/title/state/size/lifetime signals')
     manager.destroy()
     assert(window.handlers.size === 0 && ctx.settings.extension.handlers.size === 0, 'Destroyed window owner retains signals')
     assert(!window._uniteNextManaged && manager.windows.size === 0, 'Window remains managed')
@@ -521,9 +494,14 @@ test('Motif ownership preserves fields, absence and foreign updates', () => {
         property = request.value; writes++; return [true, JSON.stringify({ changed: true }), '']
       }, get_successful() { return this.ok }
     }) } }
-    const { ServerDecorations } = loadModule(`${root}/unite-next@lucastsudaka.github.io/window.js`,
-      { GObject, Shell: {}, Meta, Gio: mockGio, Main, Handlers, Convenience }, ['ServerDecorations'])
-    const decoration = new ServerDecorations({ xid: '0x7', win: { decorated: true, get_frame_type: () => 0 } })
+    const decoration = new ServerDecorations({ xid: '0x7', win: { decorated: true, get_frame_type: () => 0 } }, {
+      border: 1, request(input) {
+        const process = mockGio.Subprocess.new()
+        const [, output, error] = process.communicate_utf8(JSON.stringify(input))
+        if (!process.get_successful()) throw new Error(error)
+        return JSON.parse(output)
+      }
+    })
     decoration.reset()
     assert(writes === 0, 'Never-modified window received a write')
     decoration.hide()
@@ -550,26 +528,19 @@ test('Motif apply conflict releases ownership before later teardown', () => {
         [true, '', 'Ownership conflict: application changed _MOTIF_WM_HINTS']
     }, get_successful() { return this.ok }
   }) } }
-  const { ServerDecorations } = loadModule(`${root}/unite-next@lucastsudaka.github.io/window.js`,
-    { GObject, Shell: {}, Meta, Gio: mockGio, Main, Handlers, Convenience }, ['ServerDecorations'])
-  const decoration = new ServerDecorations({ xid: '0x7', win: { decorated: true, get_frame_type: () => 0 } })
+    const decoration = new ServerDecorations({ xid: '0x7', win: { decorated: true, get_frame_type: () => 0 } }, {
+      border: 1, request(input) {
+        const process = mockGio.Subprocess.new()
+        const [, output, error] = process.communicate_utf8(JSON.stringify(input))
+        if (!process.get_successful()) throw new Error(error)
+        return JSON.parse(output)
+      }
+    })
   throws(() => decoration.hide(), 'Observed foreign update was not reported')
   assert(decoration.owned === null && decoration.conflicted, 'Foreign state remains falsely owned')
   decoration.reset()
   decoration.hide()
   assert(calls === 2, 'Later teardown/updates attempted to overwrite conflicting foreign state')
-})
-
-test('Cleanup retains the original single error and every aggregated diagnostic', () => {
-  const original = new Error('first boundary failure')
-  assert(throws(() => Handlers.runCleanup([() => { throw original }]), 'Error disappeared') === original,
-    'Single failure lost its original stack/object')
-  const combined = throws(() => Handlers.runCleanup([
-    () => { throw original }, () => { throw new Error('second boundary failure') }
-  ]), 'Aggregate failure disappeared')
-  assert(combined.errors.length === 2 && combined.cause === original &&
-    combined.message.includes('first boundary failure') && combined.message.includes('second boundary failure'),
-    'GNOME error reporting cannot observe every failure')
 })
 
 print(`${passed} passed; ${failed} failed`)

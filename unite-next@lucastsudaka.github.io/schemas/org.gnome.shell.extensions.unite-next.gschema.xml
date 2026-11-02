@@ -39,16 +39,6 @@
       <summary>Extend top bar left box.</summary>
     </key>
 
-    <key name="show-legacy-tray" type="b">
-      <default>true</default>
-      <summary>Legacy tray icons in top bar.</summary>
-    </key>
-
-    <key name="greyscale-tray-icons" type="b">
-      <default>false</default>
-      <summary>Convert legacy tray icons to greyscale.</summary>
-    </key>
-
     <key name="autofocus-windows" type="b">
       <default>true</default>
       <summary>Autofocus windows that demand attention.</summary>

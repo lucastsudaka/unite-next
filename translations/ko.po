@@ -21,233 +21,217 @@ msgstr ""
 "X-Poedit-SearchPath-0: settings.ui\n"
 "X-Poedit-SearchPath-1: overrides/settings.ui\n"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:11
+#: unite-next@lucastsudaka.github.io/settings.ui:12
 msgid "General"
 msgstr "일반"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:15
+#: unite-next@lucastsudaka.github.io/settings.ui:16
 msgid "Layout Tweaks"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:18
+#: unite-next@lucastsudaka.github.io/settings.ui:19
 msgid "Extend panel left box"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:19
+#: unite-next@lucastsudaka.github.io/settings.ui:20
 msgid "Extend top panel left box"
-msgstr ""
+msgstr "최상위 표시줄의 왼쪽 상자 확장"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:24
+#: unite-next@lucastsudaka.github.io/settings.ui:25
 msgid "Reduce panel spacing"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:25
+#: unite-next@lucastsudaka.github.io/settings.ui:26
 msgid "Reduce top panel icons and buttons spacing"
-msgstr ""
+msgstr "최상위 표시줄 내 항목 간격 최소화"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:30
+#: unite-next@lucastsudaka.github.io/settings.ui:31
 msgid "Notifications position"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:31
+#: unite-next@lucastsudaka.github.io/settings.ui:32
 msgid "System notification messages position"
-msgstr ""
+msgstr "알림 메시지 위치"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:38
-msgid "System Tray"
-msgstr ""
-
-#: unite-next@lucastsudaka.github.io/settings.ui:41
-msgid "Enable tray"
-msgstr ""
-
-#: unite-next@lucastsudaka.github.io/settings.ui:42
-msgid "Show system tray in top panel"
-msgstr ""
-
-#: unite-next@lucastsudaka.github.io/settings.ui:47
-msgid "Greyscale icons"
-msgstr ""
-
-#: unite-next@lucastsudaka.github.io/settings.ui:48
-msgid "Convert tray icons to greyscale"
-msgstr "트레이 아이콘을 흑백으로 변경"
-
-#: unite-next@lucastsudaka.github.io/settings.ui:55
+#: unite-next@lucastsudaka.github.io/settings.ui:39
 msgid "Application Menu"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:58
+#: unite-next@lucastsudaka.github.io/settings.ui:42
 msgid "Enable appmenu"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:59
+#: unite-next@lucastsudaka.github.io/settings.ui:43
 msgid "Show appmenu button in top panel"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:64
+#: unite-next@lucastsudaka.github.io/settings.ui:48
 msgid "Maximum width"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:65
+#: unite-next@lucastsudaka.github.io/settings.ui:49
 msgid "Maximum width for the appmenu button label"
-msgstr ""
+msgstr "앱 메뉴 최대 크기"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:71
+#: unite-next@lucastsudaka.github.io/settings.ui:55
 msgid "Text ellipsis"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:72
+#: unite-next@lucastsudaka.github.io/settings.ui:56
 msgid "Text ellipsis mode for appmenu button label"
-msgstr ""
+msgstr "앱 메뉴 숨기기"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:77
+#: unite-next@lucastsudaka.github.io/settings.ui:61
 msgid "Disable icon"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:78
+#: unite-next@lucastsudaka.github.io/settings.ui:62
 msgid "Hide application icon in appmenu button"
-msgstr ""
+msgstr "앱 메뉴에 프로그램 아이콘 숨기기"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:85
+#: unite-next@lucastsudaka.github.io/settings.ui:69
 msgid "Workspace Switcher"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:88
+#: unite-next@lucastsudaka.github.io/settings.ui:72
 msgid "Use text button"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:89
+#: unite-next@lucastsudaka.github.io/settings.ui:73
 msgid "Revive old activities text button"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:94
+#: unite-next@lucastsudaka.github.io/settings.ui:78
 msgid "Hide switcher"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:95
+#: unite-next@lucastsudaka.github.io/settings.ui:79
 msgid "Hide workspace switcher button"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:102
+#: unite-next@lucastsudaka.github.io/settings.ui:86
 msgid "Desktop Name"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:105
+#: unite-next@lucastsudaka.github.io/settings.ui:89
 msgid "Enable desktop name"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:106
+#: unite-next@lucastsudaka.github.io/settings.ui:90
 msgid "Show desktop name label in top panel"
-msgstr ""
+msgstr "최상위 표시줄에 데스크탑 이름 표시"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:111
+#: unite-next@lucastsudaka.github.io/settings.ui:95
 msgid "Desktop name label"
-msgstr ""
+msgstr "데스크탑 이름"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:119
+#: unite-next@lucastsudaka.github.io/settings.ui:103
 msgid "Windows"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:123
+#: unite-next@lucastsudaka.github.io/settings.ui:107
 msgid "Behavior"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:126
+#: unite-next@lucastsudaka.github.io/settings.ui:110
 msgid "Primary screen only"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:127
-msgid "Restrict functionalities to the primary screen"
-msgstr "주 화면에서 기능 제한"
+#: unite-next@lucastsudaka.github.io/settings.ui:111
+msgid "Limit window actions and panel controls to the primary screen, including Always"
+msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:132
+#: unite-next@lucastsudaka.github.io/settings.ui:116
 msgid "Auto focus"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:133
+#: unite-next@lucastsudaka.github.io/settings.ui:117
 msgid "Auto focus new windows"
 msgstr "새 창 자동 집중"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:138
+#: unite-next@lucastsudaka.github.io/settings.ui:122
 msgid "Panel click actions"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:139
+#: unite-next@lucastsudaka.github.io/settings.ui:123
 msgid "Enable titlebar actions on top panel click"
-msgstr ""
+msgstr "최상위 표시줄 클릭 시 제목 표시줄 동작 사용"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:146
+#: unite-next@lucastsudaka.github.io/settings.ui:130
 msgid "Titlebars"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:149
+#: unite-next@lucastsudaka.github.io/settings.ui:131
+msgid "GTK application decorations remain visible while Primary screen only is enabled."
+msgstr ""
+
+#: unite-next@lucastsudaka.github.io/settings.ui:134
 msgid "Hide titlebars"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:150
+#: unite-next@lucastsudaka.github.io/settings.ui:135
 msgid "Hide window titlebars"
 msgstr "창 표시줄 숨기기"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:155
+#: unite-next@lucastsudaka.github.io/settings.ui:140
 msgid "Show appmenu title"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:156
+#: unite-next@lucastsudaka.github.io/settings.ui:141
 msgid "Show window title in top panel appmenu"
-msgstr ""
+msgstr "앱 메뉴에 창 제목 표시"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:163
+#: unite-next@lucastsudaka.github.io/settings.ui:148
 msgid "Buttons"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:166
+#: unite-next@lucastsudaka.github.io/settings.ui:151
 msgid "Show buttons"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:167
+#: unite-next@lucastsudaka.github.io/settings.ui:152
 msgid "Show window buttons in top panel"
-msgstr ""
+msgstr "최상위 표시줄에 창 단추 표시"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:172
+#: unite-next@lucastsudaka.github.io/settings.ui:157
 msgid "Panel position"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:173
+#: unite-next@lucastsudaka.github.io/settings.ui:158
 msgid "Window buttons position in top panel"
-msgstr ""
+msgstr "최상위 표시줄에 창 단추를 표시할 위치"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:178
+#: unite-next@lucastsudaka.github.io/settings.ui:163
 msgid "Icon theme"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:179
+#: unite-next@lucastsudaka.github.io/settings.ui:164
 msgid "Top panel window buttons theme"
-msgstr ""
+msgstr "최상위 표시줄 창 단추 테마"
 
-#: unite-next@lucastsudaka.github.io/settings.ui:184
+#: unite-next@lucastsudaka.github.io/settings.ui:169
 msgid "Apply icon scale fix (experimental)"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/settings.ui:185
+#: unite-next@lucastsudaka.github.io/settings.ui:170
 msgid "Icons are properly rendered for multiple different display scales"
 msgstr ""
 
-#: unite-next@lucastsudaka.github.io/buttons.js:274
+#: unite-next@lucastsudaka.github.io/button-widgets.js:222
 msgid "Close"
-msgstr ""
+msgstr "닫기"
 
-#: unite-next@lucastsudaka.github.io/buttons.js:275
+#: unite-next@lucastsudaka.github.io/button-widgets.js:223
 msgid "Minimize"
-msgstr ""
+msgstr "최소화"
 
-#: unite-next@lucastsudaka.github.io/buttons.js:276
+#: unite-next@lucastsudaka.github.io/button-widgets.js:224
 msgid "Restore"
-msgstr ""
+msgstr "복원"
 
-#: unite-next@lucastsudaka.github.io/buttons.js:276
+#: unite-next@lucastsudaka.github.io/button-widgets.js:224
 msgid "Maximize"
-msgstr ""
+msgstr "최대화"
 
 #: unite-next@lucastsudaka.github.io/preferences-bindings.js:3
 #: unite-next@lucastsudaka.github.io/preferences-bindings.js:12
@@ -287,7 +271,7 @@ msgstr "오른쪽"
 
 #: unite-next@lucastsudaka.github.io/preferences-bindings.js:12
 #: unite-next@lucastsudaka.github.io/preferences-bindings.js:14
-#: unite-next@lucastsudaka.github.io/prefs.js:62
+#: unite-next@lucastsudaka.github.io/preferences-widget.js:76
 msgid "Auto"
 msgstr "자동"
 
@@ -311,19 +295,19 @@ msgstr "가운데"
 msgid "End"
 msgstr "끝"
 
-#: unite-next@lucastsudaka.github.io/prefs.js:62
+#: unite-next@lucastsudaka.github.io/preferences-widget.js:76
 msgid "Default"
 msgstr "기본값"
 
-#: unite-next@lucastsudaka.github.io/prefs.js:64
+#: unite-next@lucastsudaka.github.io/preferences-widget.js:79
 msgid "Unavailable theme"
 msgstr ""
 
+#~ msgid "Restrict functionalities to the primary screen"
+#~ msgstr "주 화면에서 기능 제한"
+
 #~ msgid "Extend top bar left box"
 #~ msgstr "최상위 표시줄의 왼쪽 상자 확장"
-
-#~ msgid "Show system tray in top bar"
-#~ msgstr "최상위 표시줄에 시스템 트레이 표시"
 
 #~ msgid "Show desktop name in top bar"
 #~ msgstr "최상위 표시줄에 데스크탑 이름 표시"
