@@ -1,3 +1,6 @@
-<svg height="24" opacity=".54" width="24" xmlns="http://www.w3.org/2000/svg">
-  <path d="m8.41 7-1.41 1.41 3.59 3.59-3.59 3.59 1.41 1.41 3.59-3.59 3.59 3.59 1.41-1.41-3.59-3.59 3.59-3.59-1.41-1.41-3.59 3.59z"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+<!-- SPDX-FileCopyrightText: 2026 Unite Next contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<rect x="1.5" y="1.5" width="21" height="21" rx="11" fill="#b83b4b"/>
+<g fill="none" stroke="#ffffff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8l8 8m0-8l-8 8"/></g>
 </svg>

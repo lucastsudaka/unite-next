@@ -1,5 +1,6 @@
-<svg height="24" width="24" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="12" cy="12" fill="#da9e10" r="7"/>
-  <circle cx="12" cy="12" fill="#fac536" r="6.5"/>
-  <path d="m16.14733 12.591498c.321046 0 .58367-.262617.58367-.591498s-.262624-.591498-.58367-.591498h-8.29466c-.321063 0-.58367.262617-.58367.591498s.262607.591498.58367.591498z" fill="#975914"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+<!-- SPDX-FileCopyrightText: 2026 Unite Next contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<rect x="1.5" y="1.5" width="21" height="21" rx="11" fill="#555f73"/>
+<g fill="none" stroke="#f8fafc" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 15.5h9"/></g>
 </svg>

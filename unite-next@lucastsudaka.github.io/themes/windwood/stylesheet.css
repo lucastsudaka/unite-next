@@ -11,6 +11,10 @@
   background-image: url("close-hover.svg");
 }
 
+.close:active .icon {
+  background-image: url("close-hover.svg");
+}
+
 .minimize .icon {
   background-image: url("minimize.svg");
 }
@@ -19,10 +23,18 @@
   background-image: url("minimize-hover.svg");
 }
 
+.minimize:active .icon {
+  background-image: url("minimize-hover.svg");
+}
+
 .maximize .icon {
   background-image: url("maximize.svg");
 }
 
 .maximize:hover .icon {
+  background-image: url("maximize-hover.svg");
+}
+
+.maximize:active .icon {
   background-image: url("maximize-hover.svg");
 }

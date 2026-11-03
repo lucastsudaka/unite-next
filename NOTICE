@@ -39,10 +39,28 @@ Unite Shell credits these projects as inspiration:
 - TopIcons Plus: https://github.com/phocean/TopIcons-plus
 - Extend Left Box: https://github.com/StephenPCG/extend-left-box
 
-Window-control artwork — recovered attribution, 2026-11-03
+Modification notice — 2026-11-03, selective artwork clearance
+The current controls contain 249 original geometric SVGs created for Unite Next
+and distributed under GPL-3.0-or-later, copyright 2026 Unite Next contributors.
+They replace the inherited artwork in 19 theme families while preserving all 26
+theme IDs, both variants and window actions. These replacement designs are not
+claimed to be artwork by, or endorsed by, the projects named by those historical
+compatibility IDs. Original SVGs carry their own SPDX license/copyright comments.
 
-All 327 SVG files in the 26 bundled control-theme families are unchanged from
-the supplying Unite Shell commit above. Theme CSS/manifests have fork changes.
+The 78 unchanged control SVGs retained in Canta, Nordic, Dracula, Sweet, Flat
+Remix, WhiteSur and Catppuccin have documented source/grant records. The original
+Unite logo is retained under its supplying project's GPLv3 grant. Current file
+hashes, applicable terms and attribution are recorded in tools/artwork.json in
+the corresponding public sources; docs/asset-provenance.md explains the evidence.
+The historical artwork descriptions below identify the earlier supplying set;
+they do not claim those replaced files are still in the current package.
+All original code/CSS/translation contributor notices remain applicable.
+
+Historical window-control artwork — baseline before selective clearance, 2026-11-03
+
+At the historical baseline before selective clearance, all 327 SVG files in
+the 26 control-theme families were unchanged from the supplying Unite commit.
+Theme CSS/manifests had fork changes; the current replacement set is listed above.
 The contribution records identify the following suppliers to Unite Shell;
 this is not a claim that each supplier authored all of the original artwork:
 - Jonian Guveli / jonian: original built-in themes and subsequent additions
@@ -158,15 +176,16 @@ window controls to Sam Hewitt:
 https://github.com/ubuntu/yaru/blob/master/debian/copyright
 https://github.com/ubuntu/yaru/blob/4a6b9b7131da01f159c5314cf1c1b9d8f66ef5d9/debian/copyright
 
-The fork's Pop/Yaru SVGs are unchanged from the supplying Unite commit. No
-exact extraction revision from the associated original projects is claimed.
+At that historical baseline, the Pop/Yaru SVGs were unchanged from the supplying
+Unite commit. No exact original-project extraction revision was established.
+Their current control SVGs are original Unite Next replacements.
 No claim is made that every Yaru SVG belongs to its separately licensed icon
 subset. Original project notices and the CC BY-SA license URL are retained
 without replacing these scope and lineage limits with a blanket license.
 
-The Adwaita, Ambiance, Breeze, Default, OSX Arc and Radiance records do not
-establish a separate original artwork grant; Windwood retains its declared
-Ambiance dependency. This is a documented evidence limit, not proof of an
-absence of permission. Per-family sources, comparison method, recovered
-licenses and remaining limits are recorded in docs/asset-provenance.md in the
-corresponding sources. These records do not claim EGO approval.
+The historical Adwaita, Ambiance, Breeze, Default, OSX Arc and Radiance records
+did not establish a separate original artwork grant; Windwood declared an
+Ambiance dependency. Their current control SVGs are original replacements. This is a documented evidence limit, not proof of an
+absence of permission. Current source/grant records and original replacement coverage are recorded in
+docs/asset-provenance.md. The earlier ledger remains in public commit
+628d36eb3ae1b3f59f9e6bd655bf4098b76791fb. These records do not claim EGO approval.

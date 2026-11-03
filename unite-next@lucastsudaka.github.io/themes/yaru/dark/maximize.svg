@@ -1,9 +1,6 @@
-<svg height="24" viewBox="0 0 6.35 6.35" width="24" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="3.175" cy="3.17" fill="#383838" r="2.646" stroke-width=".66123"/>
-  <g fill="#f7f7f7" stroke-width=".19721" transform="translate(0 -290.92)">
-    <path d="m-206.51 208.694h.265v2.646h-.265z" transform="matrix(0 -1 .8 0 -164.84 88.637)"/>
-    <path d="m-206.78 208.69h.265v2.646h-.265z" transform="matrix(-1 0 0 -.80001 -202.55 462.1)"/>
-    <path d="m-206.78 208.69h.265v2.646h-.265z" transform="matrix(-1 0 0 -.80001 -204.4 462.1)"/>
-    <path d="m-206.78 208.69h.265v2.646h-.265z" transform="matrix(0 -1 .8 0 -164.84 86.515)"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+<!-- SPDX-FileCopyrightText: 2026 Unite Next contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="#4b4145"/>
+<g fill="none" stroke="#f8fafc" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="7.5" y="7.5" width="9" height="9" rx="0.75"/></g>
 </svg>

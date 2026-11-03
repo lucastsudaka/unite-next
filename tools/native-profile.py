@@ -41,11 +41,12 @@ INPUTS = ('tools/build.py', 'tools/candidate.py', 'tools/check-themes.mjs',
           'tests/test_x11.py', 'tests/gtk3-style-window.py', 'tests/gtk-transient-window.py',
           'tests/*.js', 'tests/*.mjs',
           'tests/fixtures/upstream-conflict/**/*', f'{UUID}/**/*',
-          'translations/*.po', 'unite-next.pot', 'LICENSE', 'LICENSES/*.txt', 'NOTICE')
+          'translations/*.po', 'unite-next.pot', 'LICENSE', 'LICENSES/*.txt', 'NOTICE',
+          'tools/artwork.json', 'logo.svg')
 EXCLUSIONS = ('.git/', 'build/', 'specs/', '.agents/', 'docs/', '**/__pycache__/')
 REQUIRED = ('tools/native-profile.py', 'tools/test-desktop.py', 'tools/build.py',
             'tools/translations.py', 'tests/desktop.js', 'tests/desktop-conflict.js',
-            f'{UUID}/metadata.json', 'LICENSE', 'NOTICE')
+            f'{UUID}/metadata.json', 'LICENSE', 'NOTICE', 'tools/artwork.json', 'logo.svg')
 
 
 class ProfileCancelled(BaseException):

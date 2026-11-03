@@ -25,6 +25,7 @@ reproduction. Build outputs belong under the ignored `build` directory.
 | Preferences and localization | `prefs.js`, `preferences-widget.js`, `preferences-bindings.js`, schema/UI, gettext sources | `tests/test_preferences.py`, `tests/preferences.mjs`, `tests/desktop-preferences.js` |
 | Accepted artifact origin, channel and unchanged transfer | `tools/candidate.py`, verification workflows | `tests/test_candidate.py`, `tests/test_release.py` |
 | Source/package identity and import boundaries | `tools/build.py`, metadata, `tools/translations.py` | `tests/test_build.py` |
+| Artwork admission and distribution notices | `tools/artwork.json`, `tools/build.py`, `NOTICE`, `docs/asset-provenance.md` | `tests/test_build.py` |
 
 Runtime paths above are inside `unite-next@lucastsudaka.github.io/`.
 

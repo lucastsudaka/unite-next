@@ -91,6 +91,12 @@ Custom control themes live under `~/.local/share/unite-next/themes`. They must p
 
 Explicit theme selections refresh discovery, including themes installed after activation. Control styles are confined to fork-owned actors; user theme files, UUID styling classes and relative asset paths remain unchanged. Imported control styles are scoped with their original resource bases. Invalid syntax or import graphs are reported rather than loaded without isolation.
 
+All 26 bundled theme IDs remain available. Nineteen families now use original
+Unite Next control artwork, so their appearance differs from earlier versions;
+stored selections and personal themes are preserved. Seven families retain their
+licensed inherited artwork. The [artwork inventory](docs/asset-provenance.md)
+identifies both sets and their applicable source/license records.
+
 After changing marked UI/JavaScript strings, run the native generator and parity check:
 
 ```bash
@@ -102,6 +108,6 @@ Generation preserves existing human translations and leaves new untranslated mes
 
 ## License and credits
 
-Unite Next retains [GPLv3](LICENSE). [NOTICE](NOTICE) records the supplying upstream source, dated modifications and attribution. [Asset provenance](docs/asset-provenance.md) records the inherited artwork and the limits of available per-theme attribution.
+Unite Next retains [GPLv3](LICENSE). [NOTICE](NOTICE) records the supplying upstream source, dated modifications and attribution. [Artwork provenance](docs/asset-provenance.md) identifies the retained licensed resources and original replacement designs; the source/package gate checks their reviewed inventory and notices.
 
 Original Unite Shell contributors retain credit for their work. Upstream credits [Pixel Saver](https://github.com/deadalnix/pixel-saver), [TopIcons Plus](https://github.com/phocean/TopIcons-plus) and [Extend Left Box](https://github.com/StephenPCG/extend-left-box) as inspiration. Translator credits remain in the PO catalogs. Historical upstream changelog links describe upstream releases.

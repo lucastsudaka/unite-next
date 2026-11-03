@@ -1,6 +1,6 @@
-<svg height="24" viewBox="0 0 6.3499998 6.3500001" width="24" xmlns="http://www.w3.org/2000/svg">
-  <g stroke-width=".264583">
-    <rect fill="#1f1f1f" fill-opacity=".098039" height="6.085417" opacity="0" ry="3.042708" width="6.085417" y=".000003"/>
-    <path d="m1.8520834 1.8520858v2.3812499h2.38125v-2.3812499zm.2645833.2645833h1.8520834v1.8520833h-1.8520834z" fill="#d3dae3"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+<!-- SPDX-FileCopyrightText: 2026 Unite Next contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="#2e485c"/>
+<g fill="none" stroke="#f8fafc" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="7.5" y="7.5" width="9" height="9" rx="0.75"/></g>
 </svg>

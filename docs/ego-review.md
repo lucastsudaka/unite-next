@@ -97,9 +97,14 @@ review; it is documented rather than presented as automatically acceptable.
 ## Assets and reproduction
 
 [NOTICE](../NOTICE) preserves original attribution and applicable notices.
-[Asset provenance](asset-provenance.md) distinguishes documented supplying
-projects, contributor statements, associations and unresolved per-asset origins.
-It does not claim a complete historical chain of permission where none was found.
+[Artwork provenance](asset-provenance.md) identifies 78 retained controls with
+applicable source/grant evidence and 249 original GPL-3.0-or-later replacements.
+All 26 theme IDs remain available; replacement designs retain the action/state
+and variant interfaces. The source/package gate checks every admitted SVG hash,
+original SPDX comments and the reviewed distribution notices. Earlier uncertain
+artwork stays identifiable in history and is absent from the current package.
+This documents applicable current coverage without making new claims about
+permission for the retired historical images.
 
 [Verification procedures](public-verification.md) describe source checks, private
 settings/buses, full and upstream-conflict journeys, process supervision and exact

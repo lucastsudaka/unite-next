@@ -3,6 +3,8 @@
 
 import argparse
 import ast
+import hashlib
+import io
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -12,6 +14,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+from urllib.parse import urlparse
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -120,6 +123,102 @@ def source_files(root=ROOT):
     return files
 
 
+def validate_artwork(root, files):
+    """REQ-EGO-ART-001: admit selected artwork bytes and declared grants.
+
+    The inventory records a reviewed source/license decision. It cannot establish
+    legal permission by itself, and is not inferred from theme names or SVG tags.
+    """
+    def regular_path(relative):
+        path = root
+        for part in PurePosixPath(relative).parts:
+            path = path / part
+            if path.is_symlink():
+                raise ValueError(f"Symbolic artwork input: {relative}")
+        if not path.is_file():
+            raise ValueError(f"Missing artwork input: {relative}")
+        return path
+
+    inventory = json.loads(regular_path("tools/artwork.json").read_bytes())
+    if (not isinstance(inventory, dict) or set(inventory) != {"schema", "groups", "notices"} or
+            type(inventory["schema"]) is not int or inventory["schema"] != 1 or
+            not isinstance(inventory["groups"], list) or not inventory["groups"]):
+        raise ValueError("Invalid artwork inventory schema")
+    if not files["NOTICE"].strip():
+        raise ValueError("Empty distribution notice: NOTICE")
+    notices = inventory["notices"]
+    if (not isinstance(notices, dict) or set(notices) != {"LICENSE", "NOTICE", "LICENSES/GPL-2.0.txt"} or
+            any(not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)
+                for digest in notices.values())):
+        raise ValueError("Invalid artwork distribution notice inventory")
+    for name, digest in notices.items():
+        if hashlib.sha256(files[name]).hexdigest() != digest:
+            raise ValueError(f"Unreviewed distribution notice bytes: {name}")
+    selected = {f"{EXTENSION}/{name}": data for name, data in files.items() if name.endswith(".svg")}
+    for path in root.glob("*.svg"):
+        selected[path.name] = regular_path(path.name).read_bytes()
+    if "logo.svg" not in selected:
+        raise ValueError("Missing artwork input: logo.svg")
+    declared, groups = set(), set()
+    for group in inventory["groups"]:
+        if (not isinstance(group, dict) or
+                any(not isinstance(group.get(key), str) or not group[key].strip()
+                    for key in ("id", "kind", "license", "source")) or
+                group["kind"] not in {"original", "inherited"} or
+                not isinstance(group.get("files"), list) or not group["files"]):
+            raise ValueError("Invalid artwork group or missing grant fields")
+        fields = {"id", "kind", "license", "source", "files"}
+        fields.add("copyright" if group["kind"] == "original" else "attribution")
+        allowed = fields | ({"copyright"} if group["kind"] == "inherited" else set())
+        if (not fields <= group.keys() <= allowed or
+                any(not isinstance(group[key], str) or not group[key].strip()
+                    for key in group.keys() - {"files"})):
+            raise ValueError("Invalid artwork group or missing grant fields")
+        if group["id"] in groups:
+            raise ValueError(f"Duplicate artwork group: {group['id']}")
+        groups.add(group["id"])
+        if group["kind"] == "original":
+            if group["license"] != "GPL-3.0-or-later":
+                raise ValueError("Original artwork must use GPL-3.0-or-later")
+        else:
+            source = urlparse(group["source"])
+            if source.scheme != "https" or not source.netloc or source.username or source.password:
+                raise ValueError("Inherited artwork requires a public HTTPS source/grant URL")
+        for entry in group["files"]:
+            if not isinstance(entry, dict) or set(entry) != {"path", "sha256"}:
+                raise ValueError("Invalid artwork file entry")
+            name, digest = entry["path"], entry["sha256"]
+            if (not isinstance(name, str) or not name or "\\" in name or
+                    PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts or
+                    PurePosixPath(name).as_posix() != name or not name.endswith(".svg") or
+                    not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)):
+                raise ValueError("Invalid artwork path or SHA-256")
+            if name in declared:
+                raise ValueError(f"Duplicate artwork path: {name}")
+            declared.add(name)
+            if name not in selected:
+                raise ValueError(f"Artwork inventory names an absent/unselected file: {name}")
+            # Check path ownership separately while validating the exact bytes
+            # already selected for packaging, not a later live-file replacement.
+            regular_path(name)
+            data = selected[name]
+            if hashlib.sha256(data).hexdigest() != digest:
+                raise ValueError(f"Unreviewed artwork bytes: {name}")
+            events = list(ET.iterparse(io.BytesIO(data), events=("start", "comment")))
+            tree = next(node for event, node in events if event == "start")
+            if tree.tag != "{http://www.w3.org/2000/svg}svg":
+                raise ValueError(f"Artwork is not an SVG document: {name}")
+            if group["kind"] == "original":
+                comments = {line.strip() for event, node in events if event == "comment"
+                            for line in (node.text or "").splitlines()}
+                required = {f"SPDX-License-Identifier: {group['license']}",
+                            f"SPDX-FileCopyrightText: {group['copyright']}"}
+                if not required <= comments:
+                    raise ValueError(f"Missing original artwork SPDX/copyright comments: {name}")
+    if declared != selected.keys():
+        raise ValueError("Unadmitted artwork paths: " + ", ".join(sorted(selected.keys() - declared)))
+
+
 def validate_module_imports(imported, source, files):
     """Check static import/re-export closure and native process boundaries.
 
@@ -166,6 +265,7 @@ def validate_module_imports(imported, source, files):
 def check(root=ROOT, version=None):
     metadata = identity(root, version)
     files = source_files(root)
+    validate_artwork(root, files)
     if json.loads(files["metadata.json"]) != metadata:
         raise ValueError("Metadata changed during source snapshot; inspect and rerun")
     schemas = [ET.fromstring(data) for name, data in files.items()

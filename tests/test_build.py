@@ -1,6 +1,7 @@
 """REQ-PACK-001/002 and REQ-I18N-001: real native tools, isolated source copies."""
 
 import ast
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -56,7 +57,10 @@ class PackageTests(unittest.TestCase):
         shutil.copytree(ROOT / "translations", cls.fixture / "translations")
         shutil.copyfile(ROOT / "LICENSE", cls.fixture / "LICENSE")
         shutil.copytree(ROOT / "LICENSES", cls.fixture / "LICENSES")
-        (cls.fixture / "NOTICE").write_text("Package fixture attribution.\n", encoding="utf-8")
+        shutil.copyfile(ROOT / "logo.svg", cls.fixture / "logo.svg")
+        (cls.fixture / "tools").mkdir()
+        shutil.copyfile(ROOT / "tools/artwork.json", cls.fixture / "tools/artwork.json")
+        shutil.copyfile(ROOT / "NOTICE", cls.fixture / "NOTICE")
         metadata = cls.fixture / build.EXTENSION / "metadata.json"
         identity = json.loads(metadata.read_text(encoding="utf-8"))
         identity["version"] = 85  # Stable test input; unrelated release bumps do not change scenarios.
@@ -110,6 +114,10 @@ class PackageTests(unittest.TestCase):
         notice_bytes = b"Unite Next modifications; upstream attribution retained.\n"
         (self.root / "LICENSE").write_bytes(license_bytes)
         (self.root / "NOTICE").write_bytes(notice_bytes)
+        manifest = self.root / "tools/artwork.json"
+        inventory = json.loads(manifest.read_text())
+        inventory["notices"]["NOTICE"] = hashlib.sha256(notice_bytes).hexdigest()
+        manifest.write_text(json.dumps(inventory))
         result = build.package(self.root, self.output, "85")
         with zipfile.ZipFile(result) as archive:
             self.assertTrue("LICENSE" in archive.namelist(), "Installation ZIP lacks LICENSE")
@@ -208,7 +216,7 @@ class PackageTests(unittest.TestCase):
         archive = build.package(self.root, self.output, "85")
         original = archive.read_bytes()
         (self.root / "NOTICE").write_text("Changed corresponding source notice.\n")
-        with self.assertRaisesRegex(ValueError, "Archive bytes differ.*NOTICE"):
+        with self.assertRaisesRegex(ValueError, "Unreviewed distribution notice bytes: NOTICE"):
             build.verify_source_archive(self.root, archive)
         self.assertEqual(archive.read_bytes(), original)
 
@@ -244,8 +252,197 @@ class PackageTests(unittest.TestCase):
 
     def test_missing_referenced_theme_icon_is_rejected(self):
         (self.root / build.EXTENSION / "themes/default/light/close.svg").unlink()
-        with self.assertRaises(subprocess.CalledProcessError):
+        with self.assertRaisesRegex(ValueError, "Artwork inventory names an absent/unselected file"):
             build.package(self.root, self.output)
+        self.assert_preserved()
+
+    def test_artwork_inventory_covers_all_controls_and_branding(self):
+        inventory = json.loads((self.root / "tools/artwork.json").read_text())
+        actual = {path.relative_to(self.root).as_posix()
+                  for path in (self.root / build.EXTENSION / "themes").rglob("*.svg")} | {"logo.svg"}
+        declared = [entry["path"] for group in inventory["groups"] for entry in group["files"]]
+        self.assertEqual(len(actual), 328)
+        self.assertEqual(len(declared), len(actual))
+        self.assertEqual(set(declared), actual)
+        build.validate_artwork(self.root, build.source_files(self.root))
+
+    def test_unadmitted_artwork_is_rejected_before_any_native_tool_or_publication(self):
+        path = self.root / build.EXTENSION / "themes/default/dark/unreviewed.svg"
+        path.write_text('<svg xmlns="http://www.w3.org/2000/svg"><rect width="3" height="3"/></svg>')
+        with patch.object(build, "run", side_effect=AssertionError("Tool unexpectedly ran")):
+            with self.assertRaisesRegex(ValueError, "Unadmitted artwork paths:.*unreviewed.svg"):
+                build.package(self.root, self.output)
+        self.assert_preserved()
+
+    def test_artwork_mutation_and_branding_mutation_are_rejected(self):
+        for relative in [f"{build.EXTENSION}/themes/default/dark/close.svg", "logo.svg"]:
+            path = self.root / relative
+            original = path.read_bytes()
+            path.write_bytes(original + b"\n<!-- unreviewed change -->\n")
+            try:
+                with self.subTest(path=relative), self.assertRaisesRegex(ValueError, "Unreviewed artwork bytes"):
+                    build.package(self.root, self.output)
+                self.assert_preserved()
+            finally:
+                path.write_bytes(original)
+
+    def test_artwork_inventory_rejects_missing_duplicate_and_absent_entries(self):
+        path = self.root / "tools/artwork.json"
+        original = path.read_bytes()
+        for case, message in [("missing", "Unadmitted artwork paths"),
+                              ("duplicate", "Duplicate artwork path"),
+                              ("absent", "absent/unselected file"),
+                              ("duplicate-group", "Duplicate artwork group")]:
+            inventory = json.loads(original)
+            group = next(group for group in inventory["groups"] if len(group["files"]) > 1)
+            if case == "missing":
+                group["files"].pop()
+            elif case == "duplicate":
+                group["files"].append(dict(group["files"][0]))
+            elif case == "absent":
+                group["files"].append({"path": f"{build.EXTENSION}/themes/default/absent.svg", "sha256": "a" * 64})
+            else:
+                inventory["groups"].append(dict(inventory["groups"][0]))
+            path.write_text(json.dumps(inventory))
+            with self.subTest(case=case), self.assertRaisesRegex(ValueError, message):
+                build.validate_artwork(self.root, build.source_files(self.root))
+
+    def test_artwork_inventory_rejects_invalid_paths_hashes_and_schema(self):
+        path = self.root / "tools/artwork.json"
+        original = path.read_bytes()
+        for key, value in [("path", "../outside.svg"), ("path", "/absolute.svg"),
+                           ("path", "./logo.svg"), ("path", "themes\\outside.svg"),
+                           ("sha256", "a" * 63), ("sha256", "A" * 64), ("sha256", 123)]:
+            inventory = json.loads(original)
+            inventory["groups"][0]["files"][0][key] = value
+            path.write_text(json.dumps(inventory))
+            with self.subTest(key=key, value=value), self.assertRaisesRegex(ValueError, "Invalid artwork path or SHA-256"):
+                build.validate_artwork(self.root, build.source_files(self.root))
+        for changed in [{"schema": True}, {"schema": 2}, {"groups": []}]:
+            inventory = {**json.loads(original), **changed}
+            path.write_text(json.dumps(inventory))
+            with self.assertRaisesRegex(ValueError, "Invalid artwork inventory schema"):
+                build.validate_artwork(self.root, build.source_files(self.root))
+
+    def test_artwork_inventory_requires_declared_grants_and_original_license(self):
+        path = self.root / "tools/artwork.json"
+        original = path.read_bytes()
+        for kind, key, value, message in [
+                ("inherited", "license", "", "missing grant fields"),
+                ("inherited", "source", "", "missing grant fields"),
+                ("inherited", "attribution", "", "missing grant fields"),
+                ("inherited", "source", "file:///unverified", "public HTTPS source/grant URL"),
+                ("original", "copyright", "", "missing grant fields"),
+                ("original", "source", "", "missing grant fields"),
+                ("original", "license", "MIT", "Original artwork must use GPL-3.0-or-later")]:
+            inventory = json.loads(original)
+            group = next(group for group in inventory["groups"] if group["kind"] == kind)
+            group[key] = value
+            path.write_text(json.dumps(inventory))
+            with self.subTest(kind=kind, key=key, value=value), self.assertRaisesRegex(ValueError, message):
+                build.validate_artwork(self.root, build.source_files(self.root))
+
+    def test_original_artwork_cannot_lose_license_or_copyright_comments_even_with_new_hash(self):
+        manifest = self.root / "tools/artwork.json"
+        inventory = json.loads(manifest.read_text())
+        group = next(group for group in inventory["groups"] if group["kind"] == "original")
+        entry = group["files"][0]
+        path = self.root / entry["path"]
+        original = path.read_bytes()
+        for comment in [f"SPDX-License-Identifier: {group['license']}",
+                        f"SPDX-FileCopyrightText: {group['copyright']}"]:
+            changed = original.replace(comment.encode(), b"removed attribution")
+            self.assertNotEqual(original, changed, "Original artwork fixture lacks the required comment")
+            path.write_bytes(changed)
+            entry["sha256"] = hashlib.sha256(changed).hexdigest()
+            manifest.write_text(json.dumps(inventory))
+            with self.subTest(comment=comment), self.assertRaisesRegex(ValueError, "Missing original artwork SPDX/copyright comments"):
+                build.validate_artwork(self.root, build.source_files(self.root))
+
+    def test_original_artwork_accepts_valid_xml_preamble_attribution(self):
+        manifest = self.root / "tools/artwork.json"
+        inventory = json.loads(manifest.read_text())
+        group = next(group for group in inventory["groups"] if group["kind"] == "original")
+        entry = group["files"][0]
+        data = (f'<!-- SPDX-License-Identifier: {group["license"]} -->\n'
+                f'<!-- SPDX-FileCopyrightText: {group["copyright"]} -->\n'
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'
+                '<rect x="4" y="4" width="8" height="8"/></svg>\n').encode()
+        (self.root / entry["path"]).write_bytes(data)
+        entry["sha256"] = hashlib.sha256(data).hexdigest()
+        manifest.write_text(json.dumps(inventory))
+        build.validate_artwork(self.root, build.source_files(self.root))
+
+    def test_artwork_inventory_and_logo_symlinks_cannot_admit_external_bytes(self):
+        for relative in ["tools/artwork.json", "logo.svg"]:
+            path = self.root / relative
+            original = path.read_bytes()
+            external = self.root.parent / path.name
+            external.write_bytes(original)
+            path.unlink()
+            path.symlink_to(external)
+            try:
+                with self.subTest(path=relative), self.assertRaisesRegex(ValueError, "Symbolic artwork input"):
+                    build.package(self.root, self.output)
+                self.assert_preserved()
+            finally:
+                path.unlink()
+                path.write_bytes(original)
+
+    def test_missing_artwork_inventory_and_empty_notice_fail_before_publication(self):
+        path = self.root / "tools/artwork.json"
+        original = path.read_bytes()
+        path.unlink()
+        with self.assertRaisesRegex(ValueError, "Missing artwork input: tools/artwork.json"):
+            build.package(self.root, self.output)
+        self.assert_preserved()
+        path.write_bytes(original)
+        (self.root / "NOTICE").write_bytes(b" \n")
+        with self.assertRaisesRegex(ValueError, "Empty distribution notice: NOTICE"):
+            build.package(self.root, self.output)
+        self.assert_preserved()
+
+    def test_nonempty_notice_cannot_lose_its_reviewed_license_block(self):
+        notice = self.root / "NOTICE"
+        original = notice.read_bytes()
+        permission = b"Permission is hereby granted, free of charge"
+        self.assertIn(permission, original, "WhiteSur MIT notice fixture is missing")
+        notice.write_bytes(original.replace(permission, b"Removed required permission notice", 1))
+        self.assertTrue(notice.read_bytes().strip())
+        with self.assertRaisesRegex(ValueError, "Unreviewed distribution notice bytes: NOTICE"):
+            build.package(self.root, self.output)
+        self.assert_preserved()
+
+    def test_notice_inventory_rejects_missing_extra_and_invalid_hash_entries(self):
+        path = self.root / "tools/artwork.json"
+        original = path.read_bytes()
+        for case in ["missing", "extra", "invalid"]:
+            inventory = json.loads(original)
+            if case == "missing":
+                inventory["notices"].pop("NOTICE")
+            elif case == "extra":
+                inventory["notices"]["unreviewed.txt"] = "a" * 64
+            else:
+                inventory["notices"]["NOTICE"] = "not a digest"
+            path.write_text(json.dumps(inventory))
+            with self.subTest(case=case), self.assertRaisesRegex(ValueError, "Invalid artwork distribution notice inventory"):
+                build.validate_artwork(self.root, build.source_files(self.root))
+
+    def test_artwork_validation_uses_selected_bytes_despite_a_later_live_repair(self):
+        path = self.root / build.EXTENSION / "themes/default/dark/close.svg"
+        original = path.read_bytes()
+        path.write_bytes(original + b"\n<!-- unreviewed selected bytes -->\n")
+        real_select = build.source_files
+
+        def select_then_repair(root):
+            selected = real_select(root)
+            path.write_bytes(original)
+            return selected
+
+        with patch.object(build, "source_files", side_effect=select_then_repair):
+            with self.assertRaisesRegex(ValueError, "Unreviewed artwork bytes"):
+                build.package(self.root, self.output)
+        self.assertEqual(path.read_bytes(), original)
         self.assert_preserved()
 
     def test_missing_tool_is_rejected(self):

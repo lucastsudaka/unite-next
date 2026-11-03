@@ -1,0 +1,1567 @@
+{
+  "schema": 1,
+  "notices": {
+    "LICENSE": "589ed823e9a84c56feb95ac58e7cf384626b9cbf4fda2a907bc36e103de1bad2",
+    "NOTICE": "e20f811291d87af93d69986e73b43d207734a46198c1cb43ae2b2f7f62a696ee",
+    "LICENSES/GPL-2.0.txt": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+  },
+  "groups": [
+    {
+      "id": "adwaita",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/dark/close-active.svg",
+          "sha256": "9285b17f8e67f50555c721ee4999011ae73d51fee0d86cb5600dcfc007f84a1a"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/dark/close-hover.svg",
+          "sha256": "19c8dba4ee6154cdc72f94677baf8568abf71356cee2b3872a4c70a123fd1540"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/dark/close.svg",
+          "sha256": "1d56fff69cb2e652fc4961281e47c438cdb560fca18a051df5986a54264ffd09"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/dark/maximize-active.svg",
+          "sha256": "a5310c7e799f86815226c0a55b962593905397c842868248e35698d4fc92ea7d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/dark/maximize-hover.svg",
+          "sha256": "1fa1cfb9ff3e9e1b7773c114640a2d2c756467d2d14dc6116805baecaf468934"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/dark/maximize.svg",
+          "sha256": "4136c7186951bc457d32805ab9cd434d300f31f5577d61ff44ebde505817dd2e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/dark/minimize-active.svg",
+          "sha256": "38ae73c81b692cb8bca5c331f626faa9b8ca30e8ffc9506bc9b396dfa4e6ec38"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/dark/minimize-hover.svg",
+          "sha256": "68f261d66aa547089dd3aee9a4930a27f7a1c6c6d07a2fa85cd32deaec87326b"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/dark/minimize.svg",
+          "sha256": "c8a35a6dd47eefeb99a3a564c5d73cb77ba7bc752934b6df02826da766c24ebe"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/light/close-active.svg",
+          "sha256": "9285b17f8e67f50555c721ee4999011ae73d51fee0d86cb5600dcfc007f84a1a"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/light/close-hover.svg",
+          "sha256": "19c8dba4ee6154cdc72f94677baf8568abf71356cee2b3872a4c70a123fd1540"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/light/close.svg",
+          "sha256": "1d56fff69cb2e652fc4961281e47c438cdb560fca18a051df5986a54264ffd09"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/light/maximize-active.svg",
+          "sha256": "b7dde5359846afc30819b26d4694b3c14791507ac297bd9b10dc52094abb16ca"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/light/maximize-hover.svg",
+          "sha256": "7ee64e890cb7fca22c453493eb88106eb512ac249ca39632bb28c9978d99c4b3"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/light/maximize.svg",
+          "sha256": "5d8c1a8db17a89f8297f07b18128d96b37d56a75a6fabbefec6676ba9baa4e68"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/light/minimize-active.svg",
+          "sha256": "868fa679b55afe3e8a7c3ae8b80e1da08ec1bb2540b627612ca88aaf086e98dc"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/light/minimize-hover.svg",
+          "sha256": "9625aedb1b24a9d6681b834e3333f9cf31b52fcdb9390fdfc1bf051c5b373a33"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/adwaita/light/minimize.svg",
+          "sha256": "1b11f49b4290f0b9055dda73d1c0524c3c5c9e5e5b606c4747974cc21b49fc2e"
+        }
+      ]
+    },
+    {
+      "id": "ambiance",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/ambiance/close-active.svg",
+          "sha256": "fe2de11f30ffe297e8a618a1ed2ac31ae2ae63370ed930d7989ea0d699d62007"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/ambiance/close-hover.svg",
+          "sha256": "31c522ac699b6ff23fd5cc479c52d7f6983db8a14794fc0d09cb88b11563f663"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/ambiance/close.svg",
+          "sha256": "5df670dced746b9249d32161542b8d52352d6856dd3ec98fd2dabdca99d929c2"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/ambiance/maximize-active.svg",
+          "sha256": "5e99fd4fdb05534ae877ef4d74f65de26b8df3c338be90361432148c07cfd12d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/ambiance/maximize-hover.svg",
+          "sha256": "2b425626508a4f64ac729fc0d260b7288e2bf5c8b3fa7fad0a92e7d31be11116"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/ambiance/maximize.svg",
+          "sha256": "77ffa77839808bb49762cc2f936acdf7a19d223a3a04111292049cd5b7f97610"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/ambiance/minimize-active.svg",
+          "sha256": "010962904a1c1ff775366374a380ebdbe07da3403aceda08e69ad0b831ba0146"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/ambiance/minimize-hover.svg",
+          "sha256": "38357068f0b6ce823afe01f8c6efd7eed64bbca50df3dda92ed38cebafa09535"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/ambiance/minimize.svg",
+          "sha256": "2844c6aeeecf112eefcf5138f0f008986536e1f2b9f873b30db2b8b62a3c9a19"
+        }
+      ]
+    },
+    {
+      "id": "arc",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/dark/close-active.svg",
+          "sha256": "f5d56f32a4cc30dabbf6a2436834ff9c45a3c95cea1c6848ed44a20598a99199"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/dark/close-hover.svg",
+          "sha256": "b53541b9aa3c1dea586c749bbf3aec3a140980e427c6c3f22bcba45c52c03a8a"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/dark/close.svg",
+          "sha256": "50f87223df429feeadc57df4ebe612aec9a0fc05414cc872e584a8f190dcf39e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/dark/maximize-active.svg",
+          "sha256": "01ba7e7d7fcf10dfb2cdc28cb798bfb60e55da9de7d603f05db5d0a46de45773"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/dark/maximize-hover.svg",
+          "sha256": "1aa4849585b6364dc427023dc0282815545ed83df1fafd90a43bc1bc4ea1e6e0"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/dark/maximize.svg",
+          "sha256": "23687885aa894371a86423ba3acce9e52fd56b2fde3351b2eaeacd265f97463e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/dark/minimize-active.svg",
+          "sha256": "64f0da4423d422a48e07eb49e35a33e7aec55a83ba3ba3be024e4fbcd5955c4e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/dark/minimize-hover.svg",
+          "sha256": "dfb4421c9f007e72e7903135d7d19caaf1567c53b53807a4b8185c3913175ae5"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/dark/minimize.svg",
+          "sha256": "f626593dd19c9e011dd38ea9ebbf9f4d7e1f2208a4c0884733774fce08ddef7f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/light/close-active.svg",
+          "sha256": "f5d56f32a4cc30dabbf6a2436834ff9c45a3c95cea1c6848ed44a20598a99199"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/light/close-hover.svg",
+          "sha256": "b53541b9aa3c1dea586c749bbf3aec3a140980e427c6c3f22bcba45c52c03a8a"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/light/close.svg",
+          "sha256": "50f87223df429feeadc57df4ebe612aec9a0fc05414cc872e584a8f190dcf39e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/light/maximize-active.svg",
+          "sha256": "badc29f9d9695d862072f6c64da4860e7c785e53e180ae77997b590982da3e01"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/light/maximize-hover.svg",
+          "sha256": "f5f082ea6f4171076a3b891cc378f5401e19ec32c99ce4f663188e4e12b5f179"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/light/maximize.svg",
+          "sha256": "565119984463021c8487c9e5ce9478dc34806da6352cf11b16f617d7a9699f78"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/light/minimize-active.svg",
+          "sha256": "7784c5ab36a092d2d9b6a69415becd294390e8e8be56201d0115b10748acd8a2"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/light/minimize-hover.svg",
+          "sha256": "c475d0f4ea9e89765c0c7b0af3b24296db931d29c97bb966a08c726f53221486"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arc/light/minimize.svg",
+          "sha256": "cd80818a3366d146921e0f56b3b9414a9822cf83c1a6cf69135063823be2b45d"
+        }
+      ]
+    },
+    {
+      "id": "arrongin",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arrongin/close-active.svg",
+          "sha256": "365875480b06dcb6416bd2896593b46301c226fdc655a84f87e746207c316d0c"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arrongin/close-hover.svg",
+          "sha256": "8957b0320d92f98e16bb0b527d44935eda7f04e68384283d0e4557cc87f259a1"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arrongin/close.svg",
+          "sha256": "a95ec88898e5a8d8baad0eea185b2f8278006a2a07f073f5d1037af7eaec6072"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arrongin/maximize-active.svg",
+          "sha256": "d06375bbe0b82f3f79e446b3d46114f92ae9710b93ce4d1155926225c44461b5"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arrongin/maximize-hover.svg",
+          "sha256": "de0c9bd2841614f23543dbbd2893f55f1b6b7644f3b47bc9b216dd79f7158228"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arrongin/maximize.svg",
+          "sha256": "4c386cdd4c93b74e271c97fcdc8186c5867465d5386482d789111195afa00893"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arrongin/minimize-active.svg",
+          "sha256": "4163d373be9fee36e790ab75f7d8173c56634463397e2e9f3313f0ded2b6685c"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arrongin/minimize-hover.svg",
+          "sha256": "9a22a66968d9b8d62af105c484eae20169742178d3912b184f1fd8bd9b1c4bf1"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/arrongin/minimize.svg",
+          "sha256": "cca411cfa9d1bb82ece949873f0502f2cdb4d6573072cfdd8acd4de42685471b"
+        }
+      ]
+    },
+    {
+      "id": "breeze",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/breeze/close-active.svg",
+          "sha256": "9f3718861c60908a63ff0c7b9b3f9d152667c290371bb1477aba51534eb8cfdb"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/breeze/close-hover.svg",
+          "sha256": "5e9e4b48bacc1d6bff0c595d7bade90d25ac5e652fe57df039aeba1605539c97"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/breeze/close.svg",
+          "sha256": "7a47464591e243b5c563802d904301bf0beb4e2586aceadfbeb28bd1eaee985f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/breeze/maximize-active.svg",
+          "sha256": "f4990ac38a037beed61ede5206c428f3ad338d8d4ac8a50e935c9a5dfcedf5df"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/breeze/maximize-hover.svg",
+          "sha256": "efc11c963eb5bee96847b5a1c5d56753f0b4b7ff0b653ddc76844845df3abc0e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/breeze/maximize.svg",
+          "sha256": "805b3a41e2627df18a01f164bac49639e911d6b2836750e719c5c4e4166ce46a"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/breeze/minimize-active.svg",
+          "sha256": "1dc948029897b400865ffdf0bcab99009654321a531da9b3931eb8dc08f3ea55"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/breeze/minimize-hover.svg",
+          "sha256": "7e55944094fe724c04091481853dbe03e9502cf7ddb1f1b7f3a570f874fbdca7"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/breeze/minimize.svg",
+          "sha256": "b1b254c94ebe372a21832e58c1cb142cf302704f81368deb228026a21d419d02"
+        }
+      ]
+    },
+    {
+      "id": "canta",
+      "kind": "inherited",
+      "license": "GPL; original COPYING supplies GPLv2 text, with no inferred only/or-later expression",
+      "source": "https://github.com/vinceliuice/Canta-theme/tree/45cc14efa515a5a615f360571bc3868998b18470",
+      "attribution": "Vince Liuice; nana-4/Materia as credited by upstream AUTHORS",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/canta/close-active.svg",
+          "sha256": "3587c08991b6dd38d0da91e264ecb9ff5a189b6dae3e79b33cb492a30abe50b5"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/canta/close-hover.svg",
+          "sha256": "2fb58110212f40c7e8bcc0c9c94538d08a5842f62ea3205329d3ff23d9c19a98"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/canta/close.svg",
+          "sha256": "d9b4eb37ed4695e4e569e50a78d75bab921d2a861bd900d03400e94011503eb4"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/canta/maximize-active.svg",
+          "sha256": "b84a052569a8cb6e6f4f51381d3169a88fae4d08fa9b12679326d83d6c25d28e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/canta/maximize-hover.svg",
+          "sha256": "ce87d009b25fb9954c196b9d672dea1e7c0bcba255fe1f5457980a9da70e0ad3"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/canta/maximize.svg",
+          "sha256": "f658f64a4a327572805ef04abfa9e099041657a90996ee9ecb1214d5a995cd2d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/canta/minimize-active.svg",
+          "sha256": "5ca02e224d3cbb6ca8c260435dba493a282acad359c9b28dbb73e4496b9b7ef2"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/canta/minimize-hover.svg",
+          "sha256": "50a3d76934fa679e80c97a3b6e346ee238f083bace1758b7e7ce7e742679aff1"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/canta/minimize.svg",
+          "sha256": "97234b2ed80003f68c7704e96d6a8e7486c12bc0415e787f2f29c0b5df23b275"
+        }
+      ]
+    },
+    {
+      "id": "catppuccin",
+      "kind": "inherited",
+      "license": "MIT (WhiteSur base); GPLv3 (Unite Shell contribution)",
+      "source": "https://github.com/vinceliuice/WhiteSur-gtk-theme/tree/943685a2fbce677758fa16f75e45f8451cc333bb",
+      "attribution": "2021 WhiteSur Developers;42willow and Unite Shell contributors for modifications",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/dark/close-active.svg",
+          "sha256": "ba8b7874605a813edbe14380fd7f1686962a0be8b7b1b126d165df8d9057cc17"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/dark/close-hover.svg",
+          "sha256": "eda80a08814427bdd5f0405353f3f06dd61e213c2ad504c0e62ab21ec800c308"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/dark/close.svg",
+          "sha256": "7d996afd2a30f25410cfebebf8380232a820375b6bb7c86854874dd63a8496c7"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/dark/maximize-active.svg",
+          "sha256": "6436c9b6248cef2dd4d8e0806b0f8269b915e07f32a7a3d901b9bb3b3fac9fe0"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/dark/maximize-hover.svg",
+          "sha256": "7ce701a8abd997c84ecb0cb02beae62e2b65dc3a43893721af75bc2b020ca43e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/dark/maximize.svg",
+          "sha256": "c5afc7441e74ca2fa8c5e5630405da6de42a1ad2ba2b05e0a234777e94fd39e1"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/dark/minimize-active.svg",
+          "sha256": "5a3e4f2b38b068f69014e3e8a9842be913350960d08d882a5e67c4b06f0a5f71"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/dark/minimize-hover.svg",
+          "sha256": "9732e706948df679295d0d4b4562e677fcd6646440dd18158dc17556a3b77118"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/dark/minimize.svg",
+          "sha256": "f57b00aabbba334a370cf5bbcf3bd4f347f968d82e907f9c3ba9192b71b54a34"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/light/close-active.svg",
+          "sha256": "ba8b7874605a813edbe14380fd7f1686962a0be8b7b1b126d165df8d9057cc17"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/light/close-hover.svg",
+          "sha256": "eda80a08814427bdd5f0405353f3f06dd61e213c2ad504c0e62ab21ec800c308"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/light/close.svg",
+          "sha256": "7d996afd2a30f25410cfebebf8380232a820375b6bb7c86854874dd63a8496c7"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/light/maximize-active.svg",
+          "sha256": "6436c9b6248cef2dd4d8e0806b0f8269b915e07f32a7a3d901b9bb3b3fac9fe0"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/light/maximize-hover.svg",
+          "sha256": "7ce701a8abd997c84ecb0cb02beae62e2b65dc3a43893721af75bc2b020ca43e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/light/maximize.svg",
+          "sha256": "c5afc7441e74ca2fa8c5e5630405da6de42a1ad2ba2b05e0a234777e94fd39e1"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/light/minimize-active.svg",
+          "sha256": "5a3e4f2b38b068f69014e3e8a9842be913350960d08d882a5e67c4b06f0a5f71"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/light/minimize-hover.svg",
+          "sha256": "9732e706948df679295d0d4b4562e677fcd6646440dd18158dc17556a3b77118"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/catppuccin/light/minimize.svg",
+          "sha256": "f57b00aabbba334a370cf5bbcf3bd4f347f968d82e907f9c3ba9192b71b54a34"
+        }
+      ],
+      "copyright": "Copyright (c) 2021 WhiteSur Developers (base artwork)"
+    },
+    {
+      "id": "default",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/dark/close-active.svg",
+          "sha256": "282b0950f5149880b60837d0b5198f4f37862bf0c23ebe3444c06a656e0b1779"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/dark/close-hover.svg",
+          "sha256": "434d9b9bdf4a783d0206b949815a621f807ae4db36b01f81279f52ea40cf7cee"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/dark/close.svg",
+          "sha256": "39691b6b3891e58ca5c98b30abc385e269e03e00dcc8616805a9e2a63809d5a3"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/dark/maximize-active.svg",
+          "sha256": "c9df8a95d29b3b0d520e23b3b20b27f5cecc8b3e1d8f1970ebe771eb204d7193"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/dark/maximize-hover.svg",
+          "sha256": "8d947f1c8c5c7e76367b6d004b0813b04e1ceec4a6d2d20a55064a5925e64ce0"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/dark/maximize.svg",
+          "sha256": "2ed9eeb6130bd8a3e6662eebda3fef9785795ba7bab8460031a5a4817d468b94"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/dark/minimize-active.svg",
+          "sha256": "3c82bcf67d9743a5b9b101342f6f74be47ea6f5934c5c2b90f4b7dc98b8e1446"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/dark/minimize-hover.svg",
+          "sha256": "122ecbd0d51543ceac519b46a6c03db119c99bb3989b66001da2a535502882f6"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/dark/minimize.svg",
+          "sha256": "9ec0239e1f940ffd78c20ca372a9902974d32ff8f4347bdfb6ce49171b0e55ce"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/light/close-active.svg",
+          "sha256": "282b0950f5149880b60837d0b5198f4f37862bf0c23ebe3444c06a656e0b1779"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/light/close-hover.svg",
+          "sha256": "434d9b9bdf4a783d0206b949815a621f807ae4db36b01f81279f52ea40cf7cee"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/light/close.svg",
+          "sha256": "39691b6b3891e58ca5c98b30abc385e269e03e00dcc8616805a9e2a63809d5a3"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/light/maximize-active.svg",
+          "sha256": "c747a66987fc68e65ffdb40c0ae746de1056f2ce38644a3b4761cdf245e10732"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/light/maximize-hover.svg",
+          "sha256": "471e9be89d89e03125c2ad385cc685a5e4b6377d2714b4d2a30b50e7cb210bcb"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/light/maximize.svg",
+          "sha256": "a2f57e8413c160d8a0bc548ad0e1adeda347f66b809e15e93c1d1746e47c4f37"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/light/minimize-active.svg",
+          "sha256": "742adf31bfb7fbb7a5a7fb15a0112c03ab2eea10f963dcc2ae48ff225057f629"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/light/minimize-hover.svg",
+          "sha256": "bac537e3948ee32583ebc929ae4f9c2c21d7a630d283bd151ec531c7feceeca1"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/default/light/minimize.svg",
+          "sha256": "bac90c38cf31c61652749e9d28ff0fcf7ae5c8209031bec9a666de1cbfd6a5b9"
+        }
+      ]
+    },
+    {
+      "id": "dracula",
+      "kind": "inherited",
+      "license": "GPLv3 (original project LICENSE)",
+      "source": "https://github.com/dracula/gtk/tree/a6984923939114ec53b42d79c902790d2938f358",
+      "attribution": "Eliver Lara and contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/dracula/close-active.svg",
+          "sha256": "d935d5a8857bc60f76a3edfb8531dcf8a96f16ac0ecfa75b1e4822e8a6ee9860"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/dracula/close-hover.svg",
+          "sha256": "d935d5a8857bc60f76a3edfb8531dcf8a96f16ac0ecfa75b1e4822e8a6ee9860"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/dracula/close.svg",
+          "sha256": "f361f1f87239cf0357ad09bcaa339a122d5f5b164b4bcb32e0c2f11b206382de"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/dracula/maximize-active.svg",
+          "sha256": "d7dd4ba40c8081d8d619aa6050815dc9909fd6b6a22850625b638e587d940591"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/dracula/maximize-hover.svg",
+          "sha256": "d7dd4ba40c8081d8d619aa6050815dc9909fd6b6a22850625b638e587d940591"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/dracula/maximize.svg",
+          "sha256": "2f512fc0bf7e3243ec4f21bb682da8adf8ed159a0a6222529f91e3a1d8c9081d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/dracula/minimize-active.svg",
+          "sha256": "52f6399cb39b3e3a24ed5371e6ece9b22ec27a0a866dfd6b8b5bf8ef7254c78f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/dracula/minimize-hover.svg",
+          "sha256": "4b5e3d627c1c35d89912745d57a7e6093af17694bef09ef0e7985823778583d0"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/dracula/minimize.svg",
+          "sha256": "53eb1fcc90909c24934b04313b673066e1afc94eaaa6e804a379079c227fd641"
+        }
+      ]
+    },
+    {
+      "id": "flat-remix",
+      "kind": "inherited",
+      "license": "GPLv3 (original project LICENSE)",
+      "source": "https://github.com/daniruiz/flat-remix-gtk/tree/0d76504e944ee67be84cb3b5e98fd6751e4f58e3",
+      "attribution": "daniruiz and Flat Remix contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/flat-remix/close-active.svg",
+          "sha256": "bf751eb447524f919804f96c28c75f8fe695f527ee51210a8e5ef4cd0af49699"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/flat-remix/close-hover.svg",
+          "sha256": "bf751eb447524f919804f96c28c75f8fe695f527ee51210a8e5ef4cd0af49699"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/flat-remix/close.svg",
+          "sha256": "1df2cc111b1a3b3e65c1c5344f0c70635591c03183b6a5b0f8eaeac65b89a5c1"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/flat-remix/maximize-active.svg",
+          "sha256": "a630ceeab7ec38e00874cd9c9c18dc9ae0b3b2f23a69a898495c5816a7446668"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/flat-remix/maximize-hover.svg",
+          "sha256": "a630ceeab7ec38e00874cd9c9c18dc9ae0b3b2f23a69a898495c5816a7446668"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/flat-remix/maximize.svg",
+          "sha256": "e5cab060455a0471731c46168b5a0b01288157b1115aea0e83bf268399d22610"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/flat-remix/minimize-active.svg",
+          "sha256": "85ecd0f08aae8f98297bad5e92c224f0ca906e22f34d0bd08a9fda265fd57d89"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/flat-remix/minimize-hover.svg",
+          "sha256": "85ecd0f08aae8f98297bad5e92c224f0ca906e22f34d0bd08a9fda265fd57d89"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/flat-remix/minimize.svg",
+          "sha256": "b742abfca8279dd525d1559384a5b5e112643d14200bfccfe2a3cdc53a8f16ba"
+        }
+      ]
+    },
+    {
+      "id": "materia",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/dark/close-active.svg",
+          "sha256": "9f3718861c60908a63ff0c7b9b3f9d152667c290371bb1477aba51534eb8cfdb"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/dark/close-hover.svg",
+          "sha256": "5e9e4b48bacc1d6bff0c595d7bade90d25ac5e652fe57df039aeba1605539c97"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/dark/close.svg",
+          "sha256": "7a47464591e243b5c563802d904301bf0beb4e2586aceadfbeb28bd1eaee985f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/dark/maximize-active.svg",
+          "sha256": "09bd0b794f113f9b0321b36f28bd08501a1301c40df73236db23225208576106"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/dark/maximize-hover.svg",
+          "sha256": "b86eabee414a18fcee5e88fa9165478529b38ea2c0ee698143abf63875dc6676"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/dark/maximize.svg",
+          "sha256": "b076833807ee98e2bba02eac881f26ee00d50b3516e6106bded5b6013e44a1bc"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/dark/minimize-active.svg",
+          "sha256": "373916d0910f29336292a56f5bc355316888793a6d4e21c6750a80823d91f8fa"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/dark/minimize-hover.svg",
+          "sha256": "a31503ee5d20c1e7b8df08938d7522d79f0fb700d5031080b2f7471f0980ea34"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/dark/minimize.svg",
+          "sha256": "8b68f81e49d2a6747fa388ba062dbe71142b2f970e37d0733f504f23f3befc42"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/light/close-active.svg",
+          "sha256": "9f3718861c60908a63ff0c7b9b3f9d152667c290371bb1477aba51534eb8cfdb"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/light/close-hover.svg",
+          "sha256": "5e9e4b48bacc1d6bff0c595d7bade90d25ac5e652fe57df039aeba1605539c97"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/light/close.svg",
+          "sha256": "7a47464591e243b5c563802d904301bf0beb4e2586aceadfbeb28bd1eaee985f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/light/maximize-active.svg",
+          "sha256": "26ddf40bd625bc34b73685a570ffe18465b822cbea970ad7d0814e33527b74c2"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/light/maximize-hover.svg",
+          "sha256": "3f2c96d027eaa98920ed586c8cc965df8f47ea68455bc4062ed409550b4ed29f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/light/maximize.svg",
+          "sha256": "a1d953260c0b4eed35b3e02c6cc9c37dbe7c4320c01c517797a79ed70cc9e9bc"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/light/minimize-active.svg",
+          "sha256": "12a0a8542796e972bf98df5f508108d0d949d6a1e81aa342bc2ce0ea9940f95c"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/light/minimize-hover.svg",
+          "sha256": "b0d7a0618222394878c36681f8d860ae29b60e85ac74181e1fa517b513736241"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/materia/light/minimize.svg",
+          "sha256": "7c1f92df7e3048eb03cf3b02167bb29074932a0b27f6935e1d9963183fc0030f"
+        }
+      ]
+    },
+    {
+      "id": "mcmojave",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/mcmojave/close-active.svg",
+          "sha256": "364731ad96093455c61fd01762f3dea9166e62ced5c3860a3d3cc453c783de6f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/mcmojave/close-hover.svg",
+          "sha256": "acade2260b3396c76a6a9c17156845e9609c665662d19759f7ea89ee24bc9ca9"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/mcmojave/close.svg",
+          "sha256": "bd40f38a9c31d8f09e98cf4ec4388da3456f4c430db6588bf24cc34ae789e464"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/mcmojave/maximize-active.svg",
+          "sha256": "3f4c3ee6aef4ae4d0d750152eae69c7cf11519599ceb2fe606702ae9a57692a4"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/mcmojave/maximize-hover.svg",
+          "sha256": "5de984ef3c86ee629fb9d8ded418dadb0091d6891607057dcfda45b0f5a1138c"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/mcmojave/maximize.svg",
+          "sha256": "addfdec6fe458f8393cce546c5c8d0be981c2a3b8013d7004140e4eba291bf06"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/mcmojave/minimize-active.svg",
+          "sha256": "979c27f881935f8a00fcc1485c7397c4aaf1082395c399aab9d0dac36c2beb87"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/mcmojave/minimize-hover.svg",
+          "sha256": "2e448890ce3040443cc9033940c3a290cc6c55b5b2bc1e5d6e4325c67c570d43"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/mcmojave/minimize.svg",
+          "sha256": "3b69228ebaf4efdfbdb526f9cbcacd8bb8a07d618a523b2b23ac766d62aac1df"
+        }
+      ]
+    },
+    {
+      "id": "nordic",
+      "kind": "inherited",
+      "license": "GPLv3 (original project LICENSE)",
+      "source": "https://github.com/EliverLara/Nordic/tree/e79a3bd076906fb6dbfd0abf0fef18e6be9151d0",
+      "attribution": "Eliver Lara and contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/nordic/close-prelight.svg",
+          "sha256": "12234d2f440e424941c0fd1306db2449a0dc92dc08c1221255cad05c3dbfef35"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/nordic/close.svg",
+          "sha256": "f4d08fb6a70e004f129b5b4a79c09b734c9d63187029ceece63e763aa4832c0f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/nordic/maximize-prelight.svg",
+          "sha256": "c6ed626696a618fa85ebca8b7aefd79bd35d30be135f9bd5bfe0cf5685fed8d7"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/nordic/maximize.svg",
+          "sha256": "52b95cc2b32fdd34535e3dfa4e32ee0df2669348dd7370bd2320163ef3a5ac84"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/nordic/min-prelight.svg",
+          "sha256": "7094d8746bd56234ff24af786090e2b24ac2bc831f17a236259de1f1a2293b89"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/nordic/min.svg",
+          "sha256": "434e53d1d6c46e3626bb1833e37a7eb24547affd6b8c84e2f24cd27bdf6041e3"
+        }
+      ]
+    },
+    {
+      "id": "osx-arc",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/osx-arc/close-active.svg",
+          "sha256": "9f3718861c60908a63ff0c7b9b3f9d152667c290371bb1477aba51534eb8cfdb"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/osx-arc/close-hover.svg",
+          "sha256": "5e9e4b48bacc1d6bff0c595d7bade90d25ac5e652fe57df039aeba1605539c97"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/osx-arc/close.svg",
+          "sha256": "7a47464591e243b5c563802d904301bf0beb4e2586aceadfbeb28bd1eaee985f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/osx-arc/maximize-active.svg",
+          "sha256": "e6375378f39bcbb77f3ce1193c64f21614ab0d0cd5f9c8e111397af252f494ca"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/osx-arc/maximize-hover.svg",
+          "sha256": "9715f16a6ff98c6fda11effb57eb0530e751144e2fe7daca38704d8522dea639"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/osx-arc/maximize.svg",
+          "sha256": "ffc8998ca99899fd26c2b1154658974b028ddd8b4b76a6be4b87afa3cdc371e9"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/osx-arc/minimize-active.svg",
+          "sha256": "804ca3d368c7be3f61370258be42a395bbb32c5040d16e325584418745bae55c"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/osx-arc/minimize-hover.svg",
+          "sha256": "6de23dea6e4579060dab46ab14ce6d03c61b39160ac7bd487fb054c847538d21"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/osx-arc/minimize.svg",
+          "sha256": "dea109cff36cd524e0728d62c4e005c58a0ce27d35f6b6982a8f4c19b6caaa73"
+        }
+      ]
+    },
+    {
+      "id": "pop",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/dark/close-active.svg",
+          "sha256": "9285b17f8e67f50555c721ee4999011ae73d51fee0d86cb5600dcfc007f84a1a"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/dark/close-hover.svg",
+          "sha256": "19c8dba4ee6154cdc72f94677baf8568abf71356cee2b3872a4c70a123fd1540"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/dark/close.svg",
+          "sha256": "1d56fff69cb2e652fc4961281e47c438cdb560fca18a051df5986a54264ffd09"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/dark/maximize-active.svg",
+          "sha256": "bc5fa6b0b40f80b3980e73356e1d5b71a4650dcd1f4e3e29fde488cf8511905d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/dark/maximize-hover.svg",
+          "sha256": "8707a87592cc11cfa3e26dfe34457473d8555fb84eeeb57be1ed2eedde020dc5"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/dark/maximize.svg",
+          "sha256": "b7f2d2117aaf443ae6409129dad103d9c743f44b927a72b4de7f420d0ae61b01"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/dark/minimize-active.svg",
+          "sha256": "2414ac7c26f1a62a7d81943e7f8f3b98b68fb4af3d6c9036ce73c0a868d90441"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/dark/minimize-hover.svg",
+          "sha256": "9a2a94723390febd8f98ba0517d471812c8fe9bb252238828f366c280c60cac1"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/dark/minimize.svg",
+          "sha256": "db867848b568468bd9311d79ce8f19fa8128df553299e140fb339b5e958bd68b"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/light/close-active.svg",
+          "sha256": "9285b17f8e67f50555c721ee4999011ae73d51fee0d86cb5600dcfc007f84a1a"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/light/close-hover.svg",
+          "sha256": "19c8dba4ee6154cdc72f94677baf8568abf71356cee2b3872a4c70a123fd1540"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/light/close.svg",
+          "sha256": "1d56fff69cb2e652fc4961281e47c438cdb560fca18a051df5986a54264ffd09"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/light/maximize-active.svg",
+          "sha256": "a17ce4b7c4af3d7361de04a5d472349dd744663f78d8b974da4b75dbffc8c901"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/light/maximize-hover.svg",
+          "sha256": "2a3c42241ca3a9785adc102919c9113ffd382172a309996ce7f0ff230e521f9e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/light/maximize.svg",
+          "sha256": "69700af99ae5c210cf18a973a562fc0e2e92b31c1ad874124d30c85d8537b3a8"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/light/minimize-active.svg",
+          "sha256": "18fd33cce52e270226619f5211d1c6de985c5d54f926aa22b2060c9476d58cd4"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/light/minimize-hover.svg",
+          "sha256": "94aca03b15adc0cf72229842a95b3c3d04a1b2d21657768a3e5ddcb9648995ed"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/pop/light/minimize.svg",
+          "sha256": "c2bdcbb704173b56c1f1e2571880f5590b2a4a115db37c13c906a46a690954c1"
+        }
+      ]
+    },
+    {
+      "id": "prof-gnome",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/dark/close-active.svg",
+          "sha256": "902a1d42f72e5bf25ca0d1972a379b2aa47f08563c00bb21f6a22197b32ca999"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/dark/close-hover.svg",
+          "sha256": "04cfd29a45b13fac2923c4a2d81b5bf4114c014d9d26aa50e3c08b68a086bba5"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/dark/close.svg",
+          "sha256": "ac2642bc935ab9b2eac7fdc3a5ee5862780545ca74e4ad2a554612817b8938e3"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/dark/maximize-active.svg",
+          "sha256": "f0f2d45bd3a603f2828024dcd7426e70b3235dd2b8afd8303ab046a414b93fe2"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/dark/maximize-hover.svg",
+          "sha256": "74817f0cc6a0440a5d0388167bacfa4f0a6e1343dd29bfb5cc9de3ff7f1bc6f0"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/dark/maximize.svg",
+          "sha256": "af1a0e46e8338e518e5d8e2e074a231341620674c1c82d29f7b0401a046dcc1e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/dark/minimize-active.svg",
+          "sha256": "c81233dab8fe0dbd2458397422beb3b33c7e603d9213fb46d3c89c65f404099d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/dark/minimize-hover.svg",
+          "sha256": "a65211bdf12f954e7a0cf839e31142498e02232e70c7e490896ec4567a492f83"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/dark/minimize.svg",
+          "sha256": "89af443a1dd1d052c7c415c579a116ec02b5126d9059c17bff0739502a5aa465"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/light/close-active.svg",
+          "sha256": "902a1d42f72e5bf25ca0d1972a379b2aa47f08563c00bb21f6a22197b32ca999"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/light/close-hover.svg",
+          "sha256": "04cfd29a45b13fac2923c4a2d81b5bf4114c014d9d26aa50e3c08b68a086bba5"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/light/close.svg",
+          "sha256": "ac2642bc935ab9b2eac7fdc3a5ee5862780545ca74e4ad2a554612817b8938e3"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/light/maximize-active.svg",
+          "sha256": "d6344ce1d2246c89fd5be019970a3b32cbf65a4befd4f5d8b0406d0773aa2ea2"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/light/maximize-hover.svg",
+          "sha256": "e34c8dc52a08bf899b63c03e8d6fbd9a9196d1abe147c2f756981710f7c7698f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/light/maximize.svg",
+          "sha256": "34e5d1239c879e1c35108bb3bdaa51280b39d95a0cc39457bd3143a70151c59c"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/light/minimize-active.svg",
+          "sha256": "c38ea3b5f160f6b0c2d301d83408bc831168c1e5dc7aea9f6a374c856c45722c"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/light/minimize-hover.svg",
+          "sha256": "2404ed2f8373dd4e31e51245bc3dca27930c2fa00a265febf2bc0a69f88577fe"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/prof-gnome/light/minimize.svg",
+          "sha256": "367c6a191feec9819aa0b4b86e94132b92be4587e6742ae50c3a53c083f5c5ca"
+        }
+      ]
+    },
+    {
+      "id": "qogir",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/dark/close-active.svg",
+          "sha256": "b3682231b10d5ada09f5c5de1814b10e797f66c0b3dc3702f308bb6e17f326ab"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/dark/close-hover.svg",
+          "sha256": "f2743e954ef23953393771e4d27df9d25be67a5f14f8b34ba2cde220cb1bd357"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/dark/close.svg",
+          "sha256": "c6fe9bc2400aa0b3751b79723556d82064fa81fd4c9095a3f9283110b89d7928"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/dark/maximize-active.svg",
+          "sha256": "338bcbbe9ca7b3a455f055c96c1d53f65d1b0cd3dcb175ed6dd472a6bba01fe6"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/dark/maximize-hover.svg",
+          "sha256": "6001b02f65906d6c33997b1e9910b7f563779589048cb2b668d68516e455064f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/dark/maximize.svg",
+          "sha256": "0cad2cb3629f308b65aab7150fdc5627a8105f6b88c5aa27221769777bbd9a16"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/dark/minimize-active.svg",
+          "sha256": "63a8fd5cbbbeb8102bc478af518da5912335a100200c9764b4c033bf7349da62"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/dark/minimize-hover.svg",
+          "sha256": "2d98f6731eaeaae9dcfa5e782063c204285ce33403f8d1fcc442f986e2ee9f8b"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/dark/minimize.svg",
+          "sha256": "244e891787098135543b2f8ef13a9aae5bad53932cddc80256aa6adf8fbe3ba4"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/light/close-active.svg",
+          "sha256": "b3682231b10d5ada09f5c5de1814b10e797f66c0b3dc3702f308bb6e17f326ab"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/light/close-hover.svg",
+          "sha256": "f2743e954ef23953393771e4d27df9d25be67a5f14f8b34ba2cde220cb1bd357"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/light/close.svg",
+          "sha256": "c6fe9bc2400aa0b3751b79723556d82064fa81fd4c9095a3f9283110b89d7928"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/light/maximize-active.svg",
+          "sha256": "659aa24ba307620ce35259f733293d3d097eca4e7bc2ddecc367d7defa118eaa"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/light/maximize-hover.svg",
+          "sha256": "1e323ce0980846c1052c36d2552495103a5533192b85ed94c20d5bf385e1d07d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/light/maximize.svg",
+          "sha256": "9ab12de951bc4553ffcc6b2400cdd73e172f2e1023975fb54697d85e267f5948"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/light/minimize-active.svg",
+          "sha256": "4a7625fa431928d54ab3f7dd50c873663a5cb6fcb870fc6a08e6cb0abeee1afd"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/light/minimize-hover.svg",
+          "sha256": "bf807f00bfa689a7eee3043bda94b233e7b300ab2104c865f27134333be30809"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/qogir/light/minimize.svg",
+          "sha256": "016de211c625efa3bb49ffdecd269ec1afa2aaaf149a43925d88f6fbaed3ce74"
+        }
+      ]
+    },
+    {
+      "id": "radiance",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/radiance/close-active.svg",
+          "sha256": "fe2de11f30ffe297e8a618a1ed2ac31ae2ae63370ed930d7989ea0d699d62007"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/radiance/close-hover.svg",
+          "sha256": "31c522ac699b6ff23fd5cc479c52d7f6983db8a14794fc0d09cb88b11563f663"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/radiance/close.svg",
+          "sha256": "5df670dced746b9249d32161542b8d52352d6856dd3ec98fd2dabdca99d929c2"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/radiance/maximize-active.svg",
+          "sha256": "04abe3ea658ee9dea2b36e7038ecfc9992373030f6f74cfcf4fc002b01c40ee8"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/radiance/maximize-hover.svg",
+          "sha256": "9e9578ebd61b188b4a25b8cc94b553d80acb1621b5839a545a2484430f734d77"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/radiance/maximize.svg",
+          "sha256": "faf06d95b6209c1030cc8f8463ad24936e20d2943e7893d5541c847602a261ec"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/radiance/minimize-active.svg",
+          "sha256": "0b633f8b98d23b152e787c34230129014779d78c6ab780af09721468617b59cd"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/radiance/minimize-hover.svg",
+          "sha256": "7cb901fc4da6bdf8925f4b1008acf32888c1a702b72d14706ee4ac13ecd927c8"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/radiance/minimize.svg",
+          "sha256": "8657edeea0e705eee14caf29dc1dd822f1c8d2a88a5080a5fc6d65319dfd9f04"
+        }
+      ]
+    },
+    {
+      "id": "sweet",
+      "kind": "inherited",
+      "license": "GPLv3 (original project LICENSE)",
+      "source": "https://github.com/EliverLara/Sweet/tree/7ea1219289e544ad30f0f1c71f2b05e0ec07bc47",
+      "attribution": "Eliver Lara and contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/sweet/close-active.svg",
+          "sha256": "53332b0576a8c820156b8772ec4f196db085ebce973b69dd29436a06b3f51f34"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/sweet/close-hover.svg",
+          "sha256": "53332b0576a8c820156b8772ec4f196db085ebce973b69dd29436a06b3f51f34"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/sweet/close.svg",
+          "sha256": "e41fe0d03f8e224ad1243479d33fc39ed6c0e1a072227e188903d4ea99afe987"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/sweet/maximize-active.svg",
+          "sha256": "7026008ee2ba1a8546de997442fff7d151da33f7cbb5c517607de2d6900b8e19"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/sweet/maximize-hover.svg",
+          "sha256": "7026008ee2ba1a8546de997442fff7d151da33f7cbb5c517607de2d6900b8e19"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/sweet/maximize.svg",
+          "sha256": "7897a8da1ea1e1a9777ad8d6684d8f30a673bc75450297df938551d4f5bc021d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/sweet/minimize-active.svg",
+          "sha256": "4152537567c6d157e60275a27fec8c0ae0caad5dda2ae3cc765ea80ada89a18e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/sweet/minimize-hover.svg",
+          "sha256": "4152537567c6d157e60275a27fec8c0ae0caad5dda2ae3cc765ea80ada89a18e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/sweet/minimize.svg",
+          "sha256": "87faf677708f37244455d36793de1baaacce3c52d91075b34536d9a218e316c0"
+        }
+      ]
+    },
+    {
+      "id": "telinkrin",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/telinkrin/close-active.svg",
+          "sha256": "365875480b06dcb6416bd2896593b46301c226fdc655a84f87e746207c316d0c"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/telinkrin/close-hover.svg",
+          "sha256": "8957b0320d92f98e16bb0b527d44935eda7f04e68384283d0e4557cc87f259a1"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/telinkrin/close.svg",
+          "sha256": "a95ec88898e5a8d8baad0eea185b2f8278006a2a07f073f5d1037af7eaec6072"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/telinkrin/maximize-active.svg",
+          "sha256": "5f6f9927e973bb0ce643071c120680fdee9c6bbf44d02335db8a6ce1c772051d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/telinkrin/maximize-hover.svg",
+          "sha256": "5e13163ccdd3b1b258bb5f7efb83828079bc57e721a2a97c0b1479f3f2ccd8ac"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/telinkrin/maximize.svg",
+          "sha256": "d91d66dd656db42dc8de5489c3ab1e7eb79c303312b23e733a11e57f73460680"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/telinkrin/minimize-active.svg",
+          "sha256": "6729adfa80c383bbc369726b8470ed981867f8385e5eca9c127bb234f006d84d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/telinkrin/minimize-hover.svg",
+          "sha256": "427f6ba3d0870556c25973b216e93235c22b8233a76ea7e4c25688d5a54e4cc6"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/telinkrin/minimize.svg",
+          "sha256": "410b7a599e4458abe28a0345ea78a5b43a43ff94382115b9485e26f388d13525"
+        }
+      ]
+    },
+    {
+      "id": "united",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/dark/close-active.svg",
+          "sha256": "a032a027b36f950a5f8d07f079471830153a9a7a940bf8d6ec2fed6ef47d7e8d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/dark/close-hover.svg",
+          "sha256": "3832f22c2592e9020634f6fbfad7a91d5af4d426ac7fe84bb53f47d8b5ced36d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/dark/close.svg",
+          "sha256": "72c98be23d754497197669ae723c9cb58f8fad8a6d3a912eeb5100cc094e4dd5"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/dark/maximize-active.svg",
+          "sha256": "5dd65b458e0d6571db3198e4d44273595053fe1aa83212db0f7e79a9af21bba4"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/dark/maximize-hover.svg",
+          "sha256": "c4101254fdbbfbe5dba425f955a645243d789e6f694499200980ed1f76cb824d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/dark/maximize.svg",
+          "sha256": "053ddef6b25e5e4503b8e6af0555ac9493e095078f46f42caa9b740c255992b0"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/dark/minimize-active.svg",
+          "sha256": "2618e4a9f3506f7604c15dd48b55f23a51f1af74cc9a6689cb5f5ff2278a4089"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/dark/minimize-hover.svg",
+          "sha256": "471820aa182aff422b6f98b5244e8859e40d12953b510fb0c4027a69efcba982"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/dark/minimize.svg",
+          "sha256": "95b7e142bbef1193b8a3f16e7adc313778e11e1520a5411efb3917df1cacede2"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/light/close-active.svg",
+          "sha256": "a032a027b36f950a5f8d07f079471830153a9a7a940bf8d6ec2fed6ef47d7e8d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/light/close-hover.svg",
+          "sha256": "3832f22c2592e9020634f6fbfad7a91d5af4d426ac7fe84bb53f47d8b5ced36d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/light/close.svg",
+          "sha256": "72c98be23d754497197669ae723c9cb58f8fad8a6d3a912eeb5100cc094e4dd5"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/light/maximize-active.svg",
+          "sha256": "3256009d6257b1692e26f3c0129eaad57634d2fb16207a8dc8870f2bbb5efc4f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/light/maximize-hover.svg",
+          "sha256": "e377e525c7cabfc66ca832ae4193473bdf2bee949e2672e6423e953f5bb9ee30"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/light/maximize.svg",
+          "sha256": "d80fdcbf66fc65976c2afd69497ae010e28efd63e183b6989fa50b1c809b398a"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/light/minimize-active.svg",
+          "sha256": "56df3bed20b1abecc22160f0b47d6718294c01d27b4ffdd4e4de1e24dbcee8c1"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/light/minimize-hover.svg",
+          "sha256": "c0d876946b676cf01c830fff142976ee0a1f195922c3a0fa2aacad51695f2a23"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/united/light/minimize.svg",
+          "sha256": "7de39299b1b00852b294f79dc208c2fa7f70261971c84e55cd78ed3daf42ad00"
+        }
+      ]
+    },
+    {
+      "id": "vertex",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vertex/close-active.svg",
+          "sha256": "f5d56f32a4cc30dabbf6a2436834ff9c45a3c95cea1c6848ed44a20598a99199"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vertex/close-hover.svg",
+          "sha256": "b53541b9aa3c1dea586c749bbf3aec3a140980e427c6c3f22bcba45c52c03a8a"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vertex/close.svg",
+          "sha256": "50f87223df429feeadc57df4ebe612aec9a0fc05414cc872e584a8f190dcf39e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vertex/maximize-active.svg",
+          "sha256": "8bc95daf6d928a7ef3fd274bc573d1ba6cc55c57d9d23353575fdf341e752a9b"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vertex/maximize-hover.svg",
+          "sha256": "80b2e1b8ba9dfdf9f0436814beb4e33505dbbfdfc53f7ea8236e753b1e37d70e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vertex/maximize.svg",
+          "sha256": "153e64bb2bfb320c52fd95cd5f6a19b2c0b3e630ef8e3a262fabb4806b8c140f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vertex/minimize-active.svg",
+          "sha256": "4cd602364398e05b43963163fa2949f0e9f878ecb2d210c0c065916e55a1933c"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vertex/minimize-hover.svg",
+          "sha256": "4c3a8e68babd90abc8382b69c9a93038f337f57cf636d8ae27862e9a428aa752"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vertex/minimize.svg",
+          "sha256": "798cc6962e8e8de3da7258704e668903b08936435eea82de3b6039776e733a20"
+        }
+      ]
+    },
+    {
+      "id": "vimix",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vimix/close-active.svg",
+          "sha256": "9f3718861c60908a63ff0c7b9b3f9d152667c290371bb1477aba51534eb8cfdb"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vimix/close-hover.svg",
+          "sha256": "5e9e4b48bacc1d6bff0c595d7bade90d25ac5e652fe57df039aeba1605539c97"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vimix/close.svg",
+          "sha256": "7a47464591e243b5c563802d904301bf0beb4e2586aceadfbeb28bd1eaee985f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vimix/maximize-active.svg",
+          "sha256": "ebbbedb5e898a3ec499b88176ecd6f467980f29e3a322230a28fdd50a2ba79f2"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vimix/maximize-hover.svg",
+          "sha256": "2fd40a319e6e321846f763302d6e5d4bbdd16a42c226bb886f49fbc4798beb18"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vimix/maximize.svg",
+          "sha256": "05907acc9a97800379d6523320c755ec6ccf6bb427801755edeb65fdaad5e43b"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vimix/minimize-active.svg",
+          "sha256": "9703ba3c969323dd5230e19296feb06e867300ceb9ab8c6b6c6ba6e9ab0bdc84"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vimix/minimize-hover.svg",
+          "sha256": "894bf636b8925e2be82ab291a21cf4fd844384af9ab53d7a759d88fdb5af08e5"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/vimix/minimize.svg",
+          "sha256": "b9cf8db787f7a0d247aa790d2be0478796abb5699feb8f9ac15975e7258848e4"
+        }
+      ]
+    },
+    {
+      "id": "whitesur",
+      "kind": "inherited",
+      "license": "MIT",
+      "source": "https://github.com/vinceliuice/WhiteSur-gtk-theme/tree/943685a2fbce677758fa16f75e45f8451cc333bb",
+      "attribution": "WhiteSur Developers; Vince Liuice identified by project AUTHORS",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/dark/close-active.svg",
+          "sha256": "90a7a3a439b89b4c79308681dbf45697b3c8be561b7f6d7d55fbfcd96b99d274"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/dark/close-hover.svg",
+          "sha256": "d35e992ec44782e7d295310dfa8c399d55bb2317a7eda3c839b9e875ef11a74f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/dark/close.svg",
+          "sha256": "d4ff30e2961e21935e320903ee4af069c25709cd11bafb612b095882b157dfe6"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/dark/maximize-active.svg",
+          "sha256": "85202d6ec6526692ff03d94faf2894ca86cee737cc05630eee41a8251b7a5507"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/dark/maximize-hover.svg",
+          "sha256": "bc91da95b730e0c0df06a365d5b730181686545c1d7d0ed7eda5ea1623aaa1a6"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/dark/maximize.svg",
+          "sha256": "a0aa0fbf0a8c2bb64d4125af454609f5966dcae8c7b5d1e057289627d29e062f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/dark/minimize-active.svg",
+          "sha256": "3d3371dd0500df28d8b22b7e029ee734c37a2484734f3c1e6e50852adc340656"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/dark/minimize-hover.svg",
+          "sha256": "fd93f6690dbde4955d494a93309163f57e888f94d44a354a23f7f371d9e08dbb"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/dark/minimize.svg",
+          "sha256": "41d70e9ab48e01cbc11660c07bb37eb5194ed3c941c76225b9221eb1e6f6a1f8"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/light/close-active.svg",
+          "sha256": "90a7a3a439b89b4c79308681dbf45697b3c8be561b7f6d7d55fbfcd96b99d274"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/light/close-hover.svg",
+          "sha256": "d9f3968899351fd68f379fd232467ae331e0fe605dd57e64a8662a61fe73dd70"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/light/close.svg",
+          "sha256": "e17c62eb10973f2b48ff38df16d69a25df577f4761c507e1a496740f87f9895f"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/light/maximize-active.svg",
+          "sha256": "85202d6ec6526692ff03d94faf2894ca86cee737cc05630eee41a8251b7a5507"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/light/maximize-hover.svg",
+          "sha256": "ba771b6456ec1f385a678732ea6b1e365dadc98899a126a8fbc119dbdf9c111a"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/light/maximize.svg",
+          "sha256": "1f3ecee8346b6165852f49e5aa34a305707fa0b4d56898dcee74b6a4b7788d5e"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/light/minimize-active.svg",
+          "sha256": "3d3371dd0500df28d8b22b7e029ee734c37a2484734f3c1e6e50852adc340656"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/light/minimize-hover.svg",
+          "sha256": "d29d153f8bc21a1012eb139bf90fe6d950568126fa9a90b5405da2f5ca37420d"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/whitesur/light/minimize.svg",
+          "sha256": "cd955c2f00857fcb7d8ea8dcb3e2e2d6c8dbf371f0a0b89c75b05ed92ea69a37"
+        }
+      ],
+      "copyright": "Copyright (c) 2021 WhiteSur Developers (base artwork)"
+    },
+    {
+      "id": "windwood",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/windwood/close-hover.svg",
+          "sha256": "9daf85e6a870781ff2b10ad64fb0edb810115df5fa17dfd4ce68e096ea187fcf"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/windwood/close.svg",
+          "sha256": "930ce4ec85767f155edbd9803e8a3cd954adc35ece39b5e61fe70c69c68ccc27"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/windwood/maximize-hover.svg",
+          "sha256": "17acc0a5b0ae88f8be87098dffd89758b0cf80fc3763562e8520d93c11ccb7b3"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/windwood/maximize.svg",
+          "sha256": "3dd1215efbd5dbc28cf54df3250702da4b864eca040c4fc4f38b252646b22dcc"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/windwood/minimize-hover.svg",
+          "sha256": "3c21d2f8461d7cec59099d9e90234c5a271130d64488f9512514971607d60b47"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/windwood/minimize.svg",
+          "sha256": "c60df6b54f0553603be858c845d7efd3507180a0cfc2b75a927629416ebd9c2a"
+        }
+      ]
+    },
+    {
+      "id": "yaru",
+      "kind": "original",
+      "license": "GPL-3.0-or-later",
+      "source": "Unite Next original geometry, 2026-11-03",
+      "copyright": "2026 Unite Next contributors",
+      "files": [
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/dark/close-active.svg",
+          "sha256": "b3682231b10d5ada09f5c5de1814b10e797f66c0b3dc3702f308bb6e17f326ab"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/dark/close-hover.svg",
+          "sha256": "f2743e954ef23953393771e4d27df9d25be67a5f14f8b34ba2cde220cb1bd357"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/dark/close.svg",
+          "sha256": "c6fe9bc2400aa0b3751b79723556d82064fa81fd4c9095a3f9283110b89d7928"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/dark/maximize-active.svg",
+          "sha256": "ef482a6551bd5fa8116863ab10b322469a2e812083c8daadfa41e0af134aceb9"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/dark/maximize-hover.svg",
+          "sha256": "407f43553429551afd10750472b27bb99a3ff18b85a52398a6c46028560f15d9"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/dark/maximize.svg",
+          "sha256": "b3ad56866513512c746cf33d96e7138694c66c37cfe8fca5d175127bba156edd"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/dark/minimize-active.svg",
+          "sha256": "503bc990eb4383a95e8aef9d2f960d16ab535b7df2327f24c8b38cd1d7161c45"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/dark/minimize-hover.svg",
+          "sha256": "8a2924299f885871ce55745a11d12c07d205846fdc3d6a279620b81a45a1c9a9"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/dark/minimize.svg",
+          "sha256": "492f6e53622f1443efeb82103cf93d8db63d01a83033d23210811421c6bc504b"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/light/close-active.svg",
+          "sha256": "b3682231b10d5ada09f5c5de1814b10e797f66c0b3dc3702f308bb6e17f326ab"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/light/close-hover.svg",
+          "sha256": "f2743e954ef23953393771e4d27df9d25be67a5f14f8b34ba2cde220cb1bd357"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/light/close.svg",
+          "sha256": "c6fe9bc2400aa0b3751b79723556d82064fa81fd4c9095a3f9283110b89d7928"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/light/maximize-active.svg",
+          "sha256": "eaf7769635c4fc4be0c9fa13b9043acc9fd568f5ab2ac3b18cb92b13f9710e62"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/light/maximize-hover.svg",
+          "sha256": "e85d590a842a4cf83b5097cc241840fd6fd880a2cd85018b8959953475274237"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/light/maximize.svg",
+          "sha256": "a71c7bcaa4b2cf6ec0d4fcac6e2e61dd5929809027aa73b9df7af9f0c2466a00"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/light/minimize-active.svg",
+          "sha256": "4d9ff8ac13d443884c0f1da2d5b476bef69825dfd422c1294a37d4b384e07a2a"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/light/minimize-hover.svg",
+          "sha256": "432f3654c64cb22271c9393eb0de90d148555d804be9fa81d660ee3688d7f393"
+        },
+        {
+          "path": "unite-next@lucastsudaka.github.io/themes/yaru/light/minimize.svg",
+          "sha256": "ef3072fb41621f3f91451fea2f2e6168da9387b2ae387505c37edcf127be5995"
+        }
+      ]
+    },
+    {
+      "id": "project-logo",
+      "kind": "inherited",
+      "license": "GPLv3 (Unite Shell project grant at introduction)",
+      "source": "https://github.com/hardpixel/unite-shell/blob/706c52b09fa1ab5d14dc1aaf4d355ffaaf0eff14/logo.svg",
+      "attribution": "Jonian Guveli/jonian and Unite Shell contributors; no separately invented copyright year",
+      "files": [
+        {
+          "path": "logo.svg",
+          "sha256": "bbb896027c1528afe6d7dc1b27bd5846cbcb817341c4cc30b5aed9692b29440d"
+        }
+      ]
+    }
+  ]
+}

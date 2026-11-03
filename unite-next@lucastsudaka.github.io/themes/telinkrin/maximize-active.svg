@@ -1,1 +1,6 @@
-<svg height="16" viewBox="0 0 4.2333333 4.2333332" width="16" xmlns="http://www.w3.org/2000/svg"><circle cx="2.116667" cy="2.11667" fill="#3a6674" r="2.116667"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+<!-- SPDX-FileCopyrightText: 2026 Unite Next contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<rect x="1.5" y="1.5" width="21" height="21" rx="7" fill="#263a3b"/>
+<g fill="none" stroke="#f8fafc" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="7.5" y="7.5" width="9" height="9" rx="0.75"/></g>
+</svg>

@@ -66,13 +66,21 @@ Supply the matching compiled Shell catalogs described above if those environment
 The output directory must be new. Add `--preflight-only` to validate source/archive correspondence, native resource versions, catalog preservation and fresh-process functional GLib translation without starting a compositor. `preflight_passed` does not establish desktop acceptance. A complete run executes full and conflict journeys once on each major, using one unchanged ZIP. `receipt.json` links command outputs, native results, process cleanup, image identity, catalogs and the declared source-input manifest; it records Git HEAD/dirtiness or the absence of an owning Git checkout. Changed source/candidate bytes, failed prerequisites, missing markers, unexpected critical diagnostics or remaining descendants prevent a passing receipt. Failed output remains available, and historical evidence is never replaced.
 
 The source snapshot includes declared runtime, tool, test and gettext inputs,
-applicable license texts, and the public publisher workflow consumed by its guard
+the reviewed artwork inventory and source logo, applicable license texts, and the public publisher workflow consumed by its guard
 regressions. It explicitly excludes build/Git/wrapper/specification/private
 evidence files. Python/tool inputs have finite public names; update that
 declaration when adding a native Python consumer. It is a verification input
 closure, not the private export admission policy. Use the reviewed selected
 delivery source as `--source` when proving public-source independence; an
 authoring-tree run alone does not prove that boundary.
+
+`tools/artwork.json` admits the current SVG set and distribution notices by
+hash and records each group's applicable grant or original creation. Review
+source/license evidence before changing that inventory. An edited inventory is
+not itself proof of permission. The source gate rejects unreviewed additions or
+mutations, invalid entries and missing original SPDX comments before running the
+native packer; failed packaging preserves previous outputs. Original controls
+and retained artwork share the same native/EGO payload and theme interfaces.
 
 ## Actual native screenshots
 
