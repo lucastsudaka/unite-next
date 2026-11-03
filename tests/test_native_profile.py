@@ -183,6 +183,7 @@ class NativeSourceTests(unittest.TestCase):
         output = self.base / 'cancelled'
         real_execute = profile.execute
         commands = []
+        prefix = 'native output ' * 8192
 
         def execute_fixture(argv, log, **kwargs):
             commands.append(log.name)
@@ -205,6 +206,8 @@ class NativeSourceTests(unittest.TestCase):
                 child = ('import os,signal,sys,time; '
                          "signal.signal(signal.SIGTERM, lambda s,f: (print('owned cleanup',flush=True),sys.exit(0))); "
                          'print(os.getpid(),flush=True); '
+                         "print('native output ' * 8192,flush=True); "
+                         "print('stderr before cancellation',file=sys.stderr,flush=True); "
                          f'os.kill(os.getppid(),{signum}); time.sleep(60)')
                 return real_execute([sys.executable, '-c', child], log, timeout=0.5)
             return {'exit': 1, 'timeout': False}, 'unexpected later scenario scheduled\n'
@@ -227,7 +230,7 @@ class NativeSourceTests(unittest.TestCase):
         self.assertIsNotNone(record['exit'])
         observed = (output / 'gnome50-full.log').read_text().splitlines()
         child_pid = int(observed[0])
-        self.assertIn('owned cleanup', observed)
+        self.assertEqual(observed, [str(child_pid), prefix, 'stderr before cancellation', 'owned cleanup'])
         with self.assertRaises(ProcessLookupError):
             os.kill(child_pid, 0)
 

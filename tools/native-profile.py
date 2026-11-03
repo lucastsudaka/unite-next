@@ -168,64 +168,69 @@ def sandbox_command(major, output, image, podman, command, *, overlay=None, cidf
 def execute(argv, log, *, timeout=30, podman=None, cidfile=None):
     """Bound the outer launcher too; terminate only its own container on failure."""
     started = time.monotonic()
-    try:
-        process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                   text=True, start_new_session=True)
-    except OSError as error:
-        log.write_text(str(error) + '\n')
-        record = {'argv': argv, 'exit': None, 'timeout': False, 'error': str(error),
-                  'seconds': round(time.monotonic() - started, 3), 'output': log.name, 'sha256': sha256(log)}
-        write_json(log.with_suffix('.json'), record)
-        return record, log.read_text()
     timed_out = False
     failure = None
     cancellation = None
-    output = ''
-    def stop(sig):
+    # A signal can interrupt communicate() after a pipe read but before its
+    # returned bytes enter Python's buffer. Let the child write the retained log
+    # directly so cancellation cannot discard output already produced.
+    with log.open('w') as stream:
         try:
-            os.killpg(process.pid, sig)
-        except ProcessLookupError:
-            pass
-    try:
+            process = subprocess.Popen(argv, stdout=stream, stderr=subprocess.STDOUT,
+                                       start_new_session=True)
+        except OSError as error:
+            stream.write(str(error) + '\n')
+            stream.flush()
+            record = {'argv': argv, 'exit': None, 'timeout': False, 'error': str(error),
+                      'seconds': round(time.monotonic() - started, 3), 'output': log.name, 'sha256': sha256(log)}
+            write_json(log.with_suffix('.json'), record)
+            return record, log.read_text()
+
+        def stop(sig):
+            try:
+                os.killpg(process.pid, sig)
+            except ProcessLookupError:
+                pass
         try:
-            output, _ = process.communicate(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            timed_out = True
-            stop(signal.SIGTERM)
             try:
-                output, _ = process.communicate(timeout=5)
+                process.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
-                stop(signal.SIGKILL)
-                output, _ = process.communicate(timeout=5)
-        except (ProfileCancelled, KeyboardInterrupt) as error:
-            cancellation = error if isinstance(error, ProfileCancelled) else ProfileCancelled(
-                'Native profile interrupted by KeyboardInterrupt')
-            failure = str(cancellation)
-            stop(signal.SIGTERM)
-            try:
-                output, _ = process.communicate(timeout=5)
-            except subprocess.TimeoutExpired:
-                stop(signal.SIGKILL)
-                output, _ = process.communicate(timeout=5)
-        except Exception as error:
-            failure = str(error) or type(error).__name__
-    finally:
-        if process.poll() is None:
-            stop(signal.SIGKILL)
-            output, _ = process.communicate(timeout=5)
-        if podman and cidfile and cidfile.exists() and (cancellation or timed_out or process.returncode):
-            identity = cidfile.read_text().strip()
-            if not re.fullmatch('[0-9a-f]{64}', identity):
-                failure = 'Invalid owned container ID in profile cidfile'
-            else:
+                timed_out = True
+                stop(signal.SIGTERM)
                 try:
-                    cleanup = subprocess.run([podman, 'rm', '--force', '--ignore', identity],
-                                             capture_output=True, text=True, timeout=10)
-                    if cleanup.returncode:
-                        raise RuntimeError(f'Owned profile container cleanup failed: {cleanup.stderr}')
-                except Exception as error:
-                    failure = '; '.join(filter(None, [failure, str(error)]))
-    log.write_text(output)
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    stop(signal.SIGKILL)
+                    process.wait(timeout=5)
+            except (ProfileCancelled, KeyboardInterrupt) as error:
+                cancellation = error if isinstance(error, ProfileCancelled) else ProfileCancelled(
+                    'Native profile interrupted by KeyboardInterrupt')
+                failure = str(cancellation)
+                stop(signal.SIGTERM)
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    stop(signal.SIGKILL)
+                    process.wait(timeout=5)
+            except Exception as error:
+                failure = str(error) or type(error).__name__
+        finally:
+            if process.poll() is None:
+                stop(signal.SIGKILL)
+                process.wait(timeout=5)
+            if podman and cidfile and cidfile.exists() and (cancellation or timed_out or process.returncode):
+                identity = cidfile.read_text().strip()
+                if not re.fullmatch('[0-9a-f]{64}', identity):
+                    failure = 'Invalid owned container ID in profile cidfile'
+                else:
+                    try:
+                        cleanup = subprocess.run([podman, 'rm', '--force', '--ignore', identity],
+                                                 capture_output=True, text=True, timeout=10)
+                        if cleanup.returncode:
+                            raise RuntimeError(f'Owned profile container cleanup failed: {cleanup.stderr}')
+                    except Exception as error:
+                        failure = '; '.join(filter(None, [failure, str(error)]))
+    output = log.read_text()
     record = {'argv': argv, 'exit': process.returncode, 'timeout': timed_out,
               'seconds': round(time.monotonic() - started, 3), 'output': log.name, 'sha256': sha256(log)}
     if failure:
