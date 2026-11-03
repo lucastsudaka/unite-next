@@ -114,7 +114,7 @@ jobs:
           path: accepted
           digest-mismatch: error
 
-      - name: Validate and create a new private alpha release without replacing existing state
+      - name: Validate and create a new public alpha release without replacing existing state
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
@@ -156,7 +156,7 @@ jobs:
           digest = hashlib.sha256(archive.read_bytes()).hexdigest()
           manifest = {"repository": repository, "source_commit": commit,
                       "uuid": os.environ["RELEASE_UUID"], "version": int(version),
-                      "archive": filename, "sha256": digest}
+                      "channel": "native", "archive": filename, "sha256": digest}
           if (digest != os.environ["ACCEPTED_SHA256"] or
                   json.loads((directory / "candidate.json").read_text(encoding="utf-8")) != manifest or
                   (directory / (filename + ".sha256")).read_text(encoding="utf-8") != f"{digest}  {filename}\n"):
@@ -185,7 +185,7 @@ jobs:
 
           def request(method, path, payload=None, *, missing=False, content_type=None):
               if method != "GET":
-                  check_private()
+                  check_public()
               url = path if path.startswith("https://uploads.github.com/") else base + path
               data = payload if content_type else (json.dumps(payload).encode() if payload is not None else None)
               headers = {"Authorization": "Bearer " + os.environ["GH_TOKEN"],
@@ -201,11 +201,11 @@ jobs:
                       return None
                   raise
 
-          def check_private():
+          def check_public():
               repo = request("GET", "")
-              if (repo.get("private") is not True or repo.get("fork") is not False or
+              if (repo.get("private") is not False or repo.get("fork") is not False or
                       repo.get("full_name") != repository or repo.get("default_branch") != "master"):
-                  raise ValueError("Release destination is not the selected private independent repository")
+                  raise ValueError("Release destination is not the selected public independent repository")
 
           def matching_release():
               page = 1
@@ -228,7 +228,7 @@ jobs:
                              for item in release.get("assets", [])]}}
 
           try:
-              check_private()
+              check_public()
               if request("GET", "/git/ref/heads/master")["object"]["sha"] != commit:
                   raise ValueError("Master changed since dispatch; review the new source before release")
               state = observed_state()
@@ -278,12 +278,12 @@ jobs:
                       {item["name"]: item.get("digest") for item in request("GET",
                           f"/releases/{release_id}/assets?per_page=100")} != expected_assets):
                   raise ValueError("Release was not published as a pre-release")
-              check_private()
+              check_public()
               completed.append("pre-release verified")
               print(json.dumps({"ok": True, "url": published["html_url"], "source_commit": commit,
                                 "archive": filename, "sha256": digest}, sort_keys=True))
               with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
-                  summary.write(f"Published private alpha: {published['html_url']}\n\n"
+                  summary.write(f"Published public alpha: {published['html_url']}\n\n"
                                 f"Source: `{commit}`\n\nZIP SHA-256: `{digest}`\n")
           except Exception as error:
               try:

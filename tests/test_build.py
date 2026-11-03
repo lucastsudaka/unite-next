@@ -55,6 +55,7 @@ class PackageTests(unittest.TestCase):
         shutil.copytree(ROOT / build.EXTENSION, cls.fixture / build.EXTENSION)
         shutil.copytree(ROOT / "translations", cls.fixture / "translations")
         shutil.copyfile(ROOT / "LICENSE", cls.fixture / "LICENSE")
+        shutil.copytree(ROOT / "LICENSES", cls.fixture / "LICENSES")
         (cls.fixture / "NOTICE").write_text("Package fixture attribution.\n", encoding="utf-8")
         metadata = cls.fixture / build.EXTENSION / "metadata.json"
         identity = json.loads(metadata.read_text(encoding="utf-8"))
@@ -115,6 +116,85 @@ class PackageTests(unittest.TestCase):
             self.assertTrue("NOTICE" in archive.namelist(), "Installation ZIP lacks NOTICE")
             self.assertEqual(archive.read("LICENSE"), license_bytes)
             self.assertEqual(archive.read("NOTICE"), notice_bytes)
+            self.assertEqual(archive.read("LICENSES/GPL-2.0.txt"),
+                             (ROOT / "LICENSES/GPL-2.0.txt").read_bytes())
+
+    def test_ego_package_changes_only_site_controlled_version_metadata(self):
+        native = build.package(self.root, self.output, "85")
+        original_native = native.read_bytes()
+        ego = build.package(self.root, self.output, "85", channel="ego")
+        self.assertEqual(ego, self.output / "ego" / f"{build.EXTENSION}.shell-extension.zip")
+        with zipfile.ZipFile(native) as left, zipfile.ZipFile(ego) as right:
+            left_files = {i.filename: left.read(i) for i in left.infolist() if not i.is_dir()}
+            right_files = {i.filename: right.read(i) for i in right.infolist() if not i.is_dir()}
+        self.assertEqual(left_files.keys(), right_files.keys())
+        changed = [name for name in left_files if left_files[name] != right_files[name]]
+        self.assertEqual(changed, ["metadata.json"])
+        expected = json.loads(left_files["metadata.json"])
+        del expected["version"]
+        expected["version-name"] = "85"
+        self.assertEqual(json.loads(right_files["metadata.json"]), expected)
+        self.assertEqual(native.read_bytes(), original_native)
+        self.assertEqual(json.loads((self.root / build.EXTENSION / "metadata.json").read_text())["version"], 85)
+        self.assertEqual(build.verify_source_archive(self.root, ego, channel="ego")["channel"], "ego")
+        for path, channel in ((ego, "native"), (native, "ego")):
+            with self.subTest(channel=channel), self.assertRaisesRegex(ValueError, "metadata.json"):
+                build.verify_source_archive(self.root, path, channel=channel)
+
+    def test_ego_package_invalid_label_preserves_previous_artifacts(self):
+        ego = self.output / "ego" / f"{build.EXTENSION}.shell-extension.zip"
+        ego.parent.mkdir()
+        ego.write_bytes(b"previous EGO candidate")
+        metadata = self.root / build.EXTENSION / "metadata.json"
+        identity = json.loads(metadata.read_text())
+        identity["version"] = 10 ** 16
+        metadata.write_text(json.dumps(identity))
+        translations.generate(self.root)
+        with self.assertRaisesRegex(ValueError, "version-name"):
+            build.package(self.root, self.output, channel="ego")
+        self.assertEqual(ego.read_bytes(), b"previous EGO candidate")
+        self.assertEqual(self.selected.read_bytes(), b"previous selected artifact")
+
+    def test_unknown_channel_fails_without_publishing(self):
+        with self.assertRaisesRegex(ValueError, "Unknown package channel"):
+            build.package(self.root, self.output, channel="unrecognized")
+        self.assert_preserved()
+
+    def test_ego_output_symlink_cannot_redirect_publication_into_runtime_sources(self):
+        (self.output / "ego").symlink_to(self.root / build.EXTENSION, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "outside runtime source"):
+            build.package(self.root, self.output, channel="ego")
+        self.assertFalse((self.root / build.EXTENSION /
+                          f"{build.EXTENSION}.shell-extension.zip").exists())
+        self.assertTrue((self.output / "ego").is_symlink())
+        self.assertEqual((self.output / "ego").resolve(), self.root / build.EXTENSION)
+        self.assertEqual(self.selected.read_bytes(), b"previous selected artifact")
+        self.assertEqual(self.unrelated.read_bytes(), b"unrelated artifact")
+
+    def test_distribution_license_parent_cannot_select_external_bytes(self):
+        licenses = self.root / "LICENSES"
+        outside = self.root.parent / "external-license"
+        licenses.rename(outside)
+        licenses.symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "symbolic distribution license directory"):
+            build.package(self.root, self.output)
+        self.assert_preserved()
+
+    def test_ego_package_failure_preserves_existing_ego_and_native_outputs(self):
+        ego = self.output / "ego" / f"{build.EXTENSION}.shell-extension.zip"
+        ego.parent.mkdir()
+        ego.write_bytes(b"previous EGO candidate")
+        native_run = build.run
+        def fail_pack(argv, *, cwd):
+            if argv[:2] == ["gnome-extensions", "pack"]:
+                raise subprocess.CalledProcessError(1, argv)
+            return native_run(argv, cwd=cwd)
+        with patch.object(build, "run", side_effect=fail_pack):
+            with self.assertRaises(subprocess.CalledProcessError):
+                build.package(self.root, self.output, channel="ego")
+        self.assertEqual(ego.read_bytes(), b"previous EGO candidate")
+        self.assertEqual(self.selected.read_bytes(), b"previous selected artifact")
+        self.assertFalse(any(path.name.startswith(".unite-package-") for path in ego.parent.iterdir()))
 
     def test_existing_archive_correspondence_never_rebuilds_accepted_bytes(self):
         archive = build.package(self.root, self.output, "85")

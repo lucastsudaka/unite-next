@@ -318,6 +318,9 @@ class PrivateSessionBusTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix='un-sbus-')
         self.addCleanup(self.temporary.cleanup)
+        supervision = desktop.owned_descendants()
+        supervision.__enter__()
+        self.addCleanup(supervision.__exit__, None, None, None)
         self.base = Path(self.temporary.name)
         (self.base / 'runtime').mkdir(mode=0o700)
 

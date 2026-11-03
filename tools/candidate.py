@@ -55,10 +55,10 @@ def regular_bytes(path):
     return path.read_bytes()
 
 
-def manifest(metadata, commit, filename, digest):
+def manifest(metadata, commit, filename, digest, *, channel="native"):
     return {"repository": REPOSITORY, "source_commit": commit,
             "uuid": metadata["uuid"], "version": metadata["version"],
-            "archive": filename, "sha256": digest}
+            "channel": channel, "archive": filename, "sha256": digest}
 
 
 def write_bundle(destination, files):
@@ -76,18 +76,35 @@ def write_bundle(destination, files):
         raise
 
 
-def prepare_candidate(root, environment):
+def prepare_candidate(root, environment, *, channel="native"):
+    if channel not in ("native", "ego"):
+        raise ValueError(f"Unknown candidate channel: {channel}")
     metadata, commit = source_identity(root, environment)
     event = json.loads(Path(required(environment, "GITHUB_EVENT_PATH")).read_text(encoding="utf-8"))
     repository = event.get("repository") if isinstance(event, dict) else None
     if (environment.get("GITHUB_EVENT_NAME") != "push" or
-            not isinstance(repository, dict) or repository.get("private") is not True):
-        raise ValueError("Acceptance artifacts require the selected private repository's master push")
-    filename = f"unite-next-v{metadata['version']}.zip"
-    data = regular_bytes(root / "build" / filename)
+            not isinstance(repository, dict) or repository.get("private") is not False):
+        raise ValueError("Acceptance artifacts require the selected public repository's master push")
+    filename = (f"{metadata['uuid']}.shell-extension.zip" if channel == "ego" else
+                f"unite-next-v{metadata['version']}.zip")
+    source = root / "build" / "ego" if channel == "ego" else root / "build"
+    data = regular_bytes(source / filename)
+    if channel == "ego":
+        native = regular_bytes(root / "build" / f"unite-next-v{metadata['version']}.zip")
+        with zipfile.ZipFile(io.BytesIO(native)) as archive:
+            payload = {item.filename: archive.read(item) for item in archive.infolist() if not item.is_dir()}
+            modes = {item.filename: item.external_attr >> 16 for item in archive.infolist() if not item.is_dir()}
+        build.validate_archive(io.BytesIO(native), payload)
+        if json.loads(payload["metadata.json"]) != metadata:
+            raise ValueError("Native reference metadata differs from the selected source")
+        build.validate_archive(io.BytesIO(data), build.channel_files(metadata, payload, "ego"))
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            if {item.filename: item.external_attr >> 16 for item in archive.infolist() if not item.is_dir()} != modes:
+                raise ValueError("EGO ZIP file modes differ from the native payload")
     digest = hashlib.sha256(data).hexdigest()
-    record = manifest(metadata, commit, filename, digest)
-    write_bundle(root / "build/candidate", {
+    record = manifest(metadata, commit, filename, digest, channel=channel)
+    destination = root / "build" / ("ego-candidate" if channel == "ego" else "candidate")
+    write_bundle(destination, {
         filename: data,
         filename + ".sha256": f"{digest}  {filename}\n".encode(),
         "candidate.json": (json.dumps(record, sort_keys=True, indent=2) + "\n").encode(),
@@ -120,9 +137,9 @@ def verify_origin(root, environment, get=None):
     required(environment, "ACCEPTED_SHA256", r"[0-9a-f]{64}")
     fetch = get if get is not None else lambda path: github_json(path, environment)
     repository = object_value(fetch(""), "repository")
-    if (repository.get("private") is not True or repository.get("fork") is not False or
+    if (repository.get("private") is not False or repository.get("fork") is not False or
             repository.get("full_name") != REPOSITORY or repository.get("default_branch") != "master"):
-        raise ValueError("Delivery must be the selected private independent repository on master")
+        raise ValueError("Delivery must be the selected public independent repository on master")
     run = object_value(fetch("/actions/runs/" + run_id), "run")
     artifact = object_value(fetch("/actions/artifacts/" + artifact_id), "artifact")
     run_repository = object_value(run.get("repository"), "run repository")
@@ -174,11 +191,13 @@ def verify_payload(root, environment):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("prepare", "verify-origin", "verify-payload"))
+    parser.add_argument("command", choices=("prepare", "prepare-ego", "verify-origin", "verify-payload"))
     args = parser.parse_args()
     try:
         if args.command == "prepare":
             result = prepare_candidate(ROOT, os.environ)
+        elif args.command == "prepare-ego":
+            result = prepare_candidate(ROOT, os.environ, channel="ego")
         elif args.command == "verify-origin":
             result = verify_origin(ROOT, os.environ)
             with Path(required(os.environ, "GITHUB_OUTPUT")).open("a", encoding="utf-8") as output:

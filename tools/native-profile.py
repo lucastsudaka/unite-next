@@ -36,12 +36,13 @@ INPUTS = ('tools/build.py', 'tools/candidate.py', 'tools/check-themes.mjs',
           'tools/native-profile.py', 'tools/test-desktop.py', 'tools/test-runtime.py',
           'tools/translations.py', 'tests/test_build.py', 'tests/test_candidate.py',
           'tests/test_desktop.py', 'tests/test_native_profile.py', 'tests/test_diagnostics.py',
+          'tests/test_release.py', '.github/workflows/release.yml',
           'tests/test_gtk_files.py', 'tests/test_preferences.py', 'tests/test_supervision.py',
           'tests/test_x11.py', 'tests/gtk3-style-window.py', 'tests/gtk-transient-window.py',
           'tests/*.js', 'tests/*.mjs',
           'tests/fixtures/upstream-conflict/**/*', f'{UUID}/**/*',
-          'translations/*.po', 'unite-next.pot', 'LICENSE', 'NOTICE')
-EXCLUSIONS = ('.git/', 'build/', 'specs/', '.agents/', 'docs/', '.github/', '**/__pycache__/')
+          'translations/*.po', 'unite-next.pot', 'LICENSE', 'LICENSES/*.txt', 'NOTICE')
+EXCLUSIONS = ('.git/', 'build/', 'specs/', '.agents/', 'docs/', '**/__pycache__/')
 REQUIRED = ('tools/native-profile.py', 'tools/test-desktop.py', 'tools/build.py',
             'tools/translations.py', 'tests/desktop.js', 'tests/desktop-conflict.js',
             f'{UUID}/metadata.json', 'LICENSE', 'NOTICE')

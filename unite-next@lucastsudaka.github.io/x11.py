@@ -15,6 +15,10 @@ WORKER_TIMEOUT_SECONDS = 1
 MAX_ITEMS = 1024
 
 
+class WindowGone(RuntimeError):
+    """The server rejected this target's core property request with BadWindow."""
+
+
 def snapshot(value):
     if value is None:
         return None
@@ -82,7 +86,9 @@ class Connection:
         callback_type = C.CFUNCTYPE(C.c_int, C.c_void_p, C.POINTER(XError))
 
         def on_error(_display, event):
-            self.errors.append(f"X11 error {event.contents.error_code} for window {xid:#x}")
+            error = event.contents
+            self.errors.append((error.error_code, error.resourceid,
+                                error.request_code, error.minor_code))
             return 0
 
         self.error_callback = callback_type(on_error)
@@ -98,7 +104,15 @@ class Connection:
     def sync(self):
         self.x.XSync(self.display, False)
         if self.errors:
-            raise RuntimeError("; ".join(self.errors))
+            diagnostic = "; ".join(
+                f"X11 error {code} for window {resource:#x} (request {request}:{minor})"
+                for code, resource, request, minor in self.errors)
+            # Core ChangeProperty/DeleteProperty/GetProperty identify the window
+            # in resourceid for BadWindow. No other error is a gone-target result.
+            if all(code == 3 and resource == self.xid and request in {18, 19, 20}
+                   and minor == 0 for code, resource, request, minor in self.errors):
+                raise WindowGone(diagnostic)
+            raise RuntimeError(diagnostic)
 
     def grab(self):
         self.x.XGrabServer(self.display)
@@ -157,6 +171,8 @@ def worker(request):
         if request["operation"] == "read":
             return {"value": connection.read(), "type": connection.atom}
         return {"changed": replace_owned(connection, expected, value)}
+    except WindowGone:
+        return {"windowGone": True, "xid": f"{xid:#x}"}
     finally:
         connection.close()
 

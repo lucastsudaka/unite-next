@@ -10,7 +10,9 @@ import sys
 import tempfile
 import threading
 import time
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 HELPER = Path(__file__).resolve().parents[1] / "unite-next@lucastsudaka.github.io/x11.py"
 spec = importlib.util.spec_from_file_location("unite_x11", HELPER)
@@ -74,6 +76,72 @@ class OwnershipTests(unittest.TestCase):
                       {"type": 1, "format": 32, "data": [0, 0, True, 0, 0]}]:
             with self.assertRaises(ValueError):
                 module.snapshot(value)
+
+    def test_only_target_badwindow_for_core_property_requests_means_gone(self):
+        connection = module.Connection.__new__(module.Connection)
+        connection.xid = 7
+        connection.display = None
+        connection.x = SimpleNamespace(XSync=lambda *_: None)
+        for request in (18, 19, 20):
+            with self.subTest(request=request):
+                connection.errors = [(3, 7, request, 0)]
+                with self.assertRaises(module.WindowGone):
+                    connection.sync()
+        for errors in ([(3, 8, 20, 0)], [(3, 7, 4, 0)], [(5, 7, 20, 0)],
+                       [(3, 7, 20, 1)], [(3, 7, 20, 0), (5, 7, 20, 0)]):
+            with self.subTest(errors=errors):
+                connection.errors = errors
+                with self.assertRaises(RuntimeError) as raised:
+                    connection.sync()
+                self.assertNotIsInstance(raised.exception, module.WindowGone)
+                self.assertIn("X11 error", str(raised.exception))
+
+    def test_destroyed_target_returns_explicit_result_and_releases_connection(self):
+        class GoneStore(Store):
+            atom = 71
+
+            def __init__(self, phase):
+                super().__init__(None)
+                self.phase = phase
+
+            def read(self):
+                result = super().read()
+                if self.phase == "read":
+                    raise module.WindowGone("target destroyed during read")
+                return result
+
+            def write(self, value):
+                self.events.append("write")
+                raise module.WindowGone("target destroyed before write")
+
+            def close(self):
+                self.events.append("close")
+
+        for operation, phase in (("read", "read"), ("replace", "read"), ("replace", "write")):
+            connection = GoneStore(phase)
+            with patch.object(module, "Connection", return_value=connection):
+                result = module.worker({"operation": operation, "xid": "0x7", "expected": None,
+                                        "value": {"type": 71, "format": 32, "data": [2, 0, 2, 0, 0]}})
+            self.assertEqual(result, {"windowGone": True, "xid": "0x7"})
+            self.assertEqual(connection.events[-1], "close")
+            if phase == "write":
+                self.assertEqual(connection.events, ["grab", "read", "write", "ungrab", "close"])
+            elif operation == "replace":
+                self.assertEqual(connection.events, ["grab", "read", "ungrab", "close"])
+
+    def test_worker_preserves_live_ownership_conflicts_and_other_errors(self):
+        for error in (ValueError("Ownership conflict: foreign value"), RuntimeError("X11 error 5")):
+            def fail():
+                raise error
+
+            connection = SimpleNamespace(read=fail,
+                                         close=lambda: closed.append(True), atom=71)
+            closed = []
+            with patch.object(module, "Connection", return_value=connection):
+                with self.assertRaises(type(error)) as raised:
+                    module.worker({"operation": "read", "xid": "0x7"})
+            self.assertIs(raised.exception, error)
+            self.assertEqual(closed, [True])
 
     def test_worker_failure_has_nonzero_exit_and_diagnostic(self):
         env = os.environ.copy()

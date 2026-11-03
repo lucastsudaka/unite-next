@@ -46,7 +46,11 @@ export class Styles {
   }
 
   addGtkStyle(name, contents, versions) {
-    this.deleteStyle(name)
+    if (this.hasStyle(name)) {
+      // Keep the transaction owner while normal preference changes coalesce.
+      this.getStyle(name).update(contents, versions)
+      return
+    }
     this.setStyle(name, GtkStyles, name, contents, versions)
   }
 

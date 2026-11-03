@@ -81,6 +81,11 @@ export async function runCapabilities(owner, settings) {
       wm.set_string('button-layout', side === 'left' ? 'minimize,maximize,close:' : ':minimize,maximize,close')
       settings.set_string('hide-window-titlebars', 'always')
       await Scripting.waitLeisure()
+      await until(() => files.every(({ file, version, seeded }) => {
+        const actual = decode(file.load_contents(null)[1])
+        const uri = owner.dir.get_child(`styles/gtk${version}/buttons-${side}/always.css`).get_uri()
+        return actual.includes(`@import url('${uri}');`) && actual.endsWith(seeded)
+      }), 'GTK application reaches the selected side and retains foreign CSS')
       for (const { file, seeded, version } of files) {
         const actual = decode(file.load_contents(null)[1])
         assert(actual.endsWith(seeded), `GTK ${version} apply changed foreign CSS`)
@@ -101,11 +106,15 @@ export async function runCapabilities(owner, settings) {
     }
     settings.set_boolean('restrict-to-primary-screen', false)
     await Scripting.waitLeisure()
+    await until(() => files.every(({ file, version }) => decode(file.load_contents(null)[1]).includes(
+      owner.dir.get_child(`styles/gtk${version}/buttons-right/always.css`).get_uri())), 'unrestricted GTK styling resumes')
     for (const version of [3, 4]) await styleClient(version, 'right', true)
     record('primary restriction removes only fork GTK styling and unrestricted styling resumes')
     wm.set_string('button-layout', 'minimize,maximize,close:')
     settings.set_string('hide-window-titlebars', 'maximized')
     await Scripting.waitLeisure()
+    await until(() => files.every(({ file, version }) => decode(file.load_contents(null)[1]).includes(
+      owner.dir.get_child(`styles/gtk${version}/buttons-left/maximized.css`).get_uri())), 'GTK maximized policy reaches the files')
     for (const version of [3, 4]) {
       await styleClient(version, 'left', false)
       await styleClient(version, 'left', true, true)

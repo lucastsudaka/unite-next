@@ -2,7 +2,7 @@
 
 Unite Next is an independent fork of [Unite Shell](https://github.com/hardpixel/unite-shell) for GNOME Shell 50 and 51. It adds window controls and titles to the top panel, manages window decorations, and provides configurable panel spacing, notifications and desktop labels.
 
-This repository is private during alpha development. Access to its sources, releases and issue tracker requires repository access. It is independently maintained and is not endorsed by the upstream project.
+The code, releases and issue tracker are public. This fork is independently maintained and is not endorsed by the upstream project. EGO submission preparation does not imply approval by extensions.gnome.org.
 
 ![Unite Next in an isolated GNOME 50 session](screenshot.png)
 
@@ -16,7 +16,7 @@ GNOME Shell 50 is the minimum supported version. The exact supported majors are 
 
 Disable the original Unite Shell before enabling Unite Next. They can be installed together, with independent settings, but must not run together. If the original activates later, Unite Next releases its effects, requests its own native deactivation and reports the conflict. Disable the original before re-enabling Unite Next. A rejected startup is reported by GNOME as an extension error; use native extension reload or a new session after resolving that conflict. Actual cleanup failures remain visible and require inspection.
 
-XWayland decoration handling requires system Python 3 and libX11. GTK 3 and GTK 4 application styling remain supported. GTK file updates use system Python, Linux `renameat2(RENAME_EXCHANGE)`, and GNU coreutils' `/usr/bin/ln` and `/usr/bin/timeout` for recoverable, exclusive and bounded publication. No third-party Python packages or runtime `xprop` are required.
+XWayland decoration handling requires system Python 3 and libX11. GTK 3 and GTK 4 application styling remain supported. GTK file transactions run in GJS/GIO and require GNU coreutils 9.5 or later at `/usr/bin/{mv,ln,realpath,sync,timeout,dd}` and a filesystem supporting atomic exchange. The [GNU 9.5 announcement](https://lists.gnu.org/archive/html/info-gnu/2024-03/msg00006.html) documents the required `mv --exchange` option. Commands are individually bounded and never run through a shell. No third-party Python packages or runtime `xprop` are required.
 
 When updating an existing `gtk.css`, Unite Next retains the actual displaced file in a private `.unite-next-gtk-recovery` directory beside it and logs the recovery path. This preserves concurrent edits, including writes through files an editor kept open. Conflicts fail visibly and retain both versions; this is not a filesystem compare-and-swap guarantee. No-op updates create no recovery files. Recoveries are never removed automatically: inspect/merge them after closing other editors, then remove versions you no longer need. An unsupported exchange fails visibly without falling back to an unsafe overwrite.
 
@@ -54,7 +54,21 @@ From a clean source checkout:
 
 The output is `build/unite-next-v<metadata version>.zip`. The metadata integer version is the release authority; `--version VERSION` asserts an exact match. Packaging stages privately, checks the native archive and atomically replaces only the selected output. A failed validation preserves existing artifacts.
 
-The archive includes runtime modules/resources, preferences, schema XML, compiled locale catalogs, LICENSE and NOTICE. The GNOME installer compiles schemas. Sources retain the original PO catalogs and native build tools so the package can be rebuilt independently.
+The archive includes runtime modules/resources, preferences, schema XML, compiled locale catalogs, LICENSE, NOTICE and applicable additional license texts. The GNOME installer compiles schemas. Sources retain the original PO catalogs and native build tools so the package can be rebuilt independently.
+
+For an extensions.gnome.org submission, build the separate EGO channel:
+
+```bash
+/usr/bin/python3 tools/build.py package --channel ego
+```
+
+Its output is `build/ego/unite-next@lucastsudaka.github.io.shell-extension.zip`.
+Only its metadata differs: the site controls `version`, so this channel omits that
+field and uses the native version's decimal string as `version-name`. All other
+payload bytes match the native package. Accept and identify the exact EGO ZIP on
+both supported Shell majors before uploading; acceptance of a different ZIP does
+not transfer automatically. [Reviewer notes](docs/ego-review.md) explain the runtime
+boundaries, dependencies and remaining review discretion.
 
 [Verification procedures](docs/public-verification.md) describe isolated native GNOME 50/51 acceptance, the conflict fixture, screenshot capture and the additional desktop-only dependencies. CI source/package checks supplement those native journeys.
 

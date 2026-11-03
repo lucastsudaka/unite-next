@@ -1,13 +1,13 @@
 import GObject from 'gi://GObject'
 import Shell from 'gi://Shell'
 import Meta from 'gi://Meta'
-import Gio from 'gi://Gio'
 import { Signals, Timeouts, runCleanup } from './resources.js'
 import { Settings } from './settings.js'
 import { Styles } from './styles.js'
 import * as Convenience from './convenience.js'
 import { ClientDecorations, ServerDecorations } from './decorations.js'
 import { windowPolicyApplies } from './window-policy.js'
+import { ProcessJob } from './process-jobs.js'
 
 const VALID_TYPES = [
   Meta.WindowType.NORMAL,
@@ -31,13 +31,17 @@ function getXid(win) {
   return match && match[0]
 }
 
-function motifRequest(request) {
+function motifCommand(request) {
   const helper = Convenience.getDir().get_child('x11.py').get_path()
-  const process = Gio.Subprocess.new(['/usr/bin/python3', helper],
-    Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE)
-  const [, output, errors] = process.communicate_utf8(JSON.stringify(request), null)
-  if (!process.get_successful()) throw new Error(errors.trim() || 'Unite Motif helper failed')
-  return JSON.parse(output)
+  return new ProcessJob(['/usr/bin/python3', '-I', '-B', helper], JSON.stringify(request), JSON.parse)
+}
+
+function motifRequest(request) {
+  return motifCommand(request).finish()
+}
+
+function startMotifRequest(request, callback) {
+  return motifCommand(request).watch(callback)
 }
 
 const MetaWindow = GObject.registerClass(
@@ -53,7 +57,9 @@ const MetaWindow = GObject.registerClass(
       this.settings = new Settings(context)
 
       if (this.xid && !this.clientDecorated) {
-        this.decorations = new ServerDecorations(this, { request: motifRequest, border: Meta.FrameType.BORDER })
+        this.decorations = new ServerDecorations(this, {
+          request: motifRequest, start: startMotifRequest, border: Meta.FrameType.BORDER
+        })
       } else {
         this.decorations = new ClientDecorations(this)
       }
@@ -241,7 +247,7 @@ const MetaWindow = GObject.registerClass(
         runCleanup([
           () => this.signals.disconnectAll(),
           () => this.settings.disconnectAll(),
-          () => { if (reset) this.decorations.reset() }
+          () => this.decorations.stop(reset)
         ])
       } finally {
         this.win._uniteNextManaged = false

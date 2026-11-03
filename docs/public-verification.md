@@ -65,7 +65,14 @@ Supply the matching compiled Shell catalogs described above if those environment
 
 The output directory must be new. Add `--preflight-only` to validate source/archive correspondence, native resource versions, catalog preservation and fresh-process functional GLib translation without starting a compositor. `preflight_passed` does not establish desktop acceptance. A complete run executes full and conflict journeys once on each major, using one unchanged ZIP. `receipt.json` links command outputs, native results, process cleanup, image identity, catalogs and the declared source-input manifest; it records Git HEAD/dirtiness or the absence of an owning Git checkout. Changed source/candidate bytes, failed prerequisites, missing markers, unexpected critical diagnostics or remaining descendants prevent a passing receipt. Failed output remains available, and historical evidence is never replaced.
 
-The source snapshot includes declared runtime, tool, test and gettext inputs and explicitly excludes build/Git/wrapper/specification/private evidence files. Python/tool inputs have finite public names; update that declaration when adding a native Python consumer. It is a verification input closure, not the private export admission policy. Use the reviewed selected delivery source as `--source` when proving public-source independence; an authoring-tree run alone does not prove that boundary.
+The source snapshot includes declared runtime, tool, test and gettext inputs,
+applicable license texts, and the public publisher workflow consumed by its guard
+regressions. It explicitly excludes build/Git/wrapper/specification/private
+evidence files. Python/tool inputs have finite public names; update that
+declaration when adding a native Python consumer. It is a verification input
+closure, not the private export admission policy. Use the reviewed selected
+delivery source as `--source` when proving public-source independence; an
+authoring-tree run alone does not prove that boundary.
 
 ## Actual native screenshots
 
@@ -79,4 +86,27 @@ The output directory must not exist. Capture uses the private compositor's nativ
 
 The source tag uses `unite-next-v<metadata version>` to preserve the upstream project's historical tags. GitHub source ZIP/tar.gz files are source snapshots. The named extension ZIP and its `.sha256` asset are the installation downloads.
 
-The read-only CI build supplies an identified ZIP, checksum and source-commit manifest. Accept that exact artifact in isolated native GNOME 50/51 and independently review its corresponding source before dispatching the release workflow. The workflow validates the selected successful build run, commit, artifact, digest, metadata and complete source payload, and publishes the original accepted ZIP without rebuilding a substitute. Publication is restricted to the confirmed private independent repository. Existing tags/releases/assets are preserved; partial external failures remain visible for inspection.
+The read-only CI build supplies separate `unite-next-native-candidate` and
+`unite-next-ego-candidate` artifacts on the public repository's master push. Each
+contains its ZIP, checksum and source-commit manifest with an explicit `channel`.
+EGO preparation checks its complete payload and modes against the native package,
+allowing only the documented version metadata projection. Preserve both manifests
+and independently accept the exact artifact intended for distribution.
+
+Accept the native artifact in isolated GNOME 50/51 and independently review its
+corresponding source before dispatching the GitHub release workflow. The workflow
+validates the selected successful build run, commit, artifact, digest, native
+channel, metadata and complete source payload, and publishes the original accepted
+ZIP without rebuilding a substitute. Publication is restricted to the confirmed
+public independent repository. Existing tags/releases/assets are preserved;
+partial external failures remain visible for inspection. The GitHub publisher
+does not upload to EGO.
+
+For the EGO channel, pass its explicit ZIP path as the first argument to
+`tools/test-desktop.py` for both `full` and `conflict` on each major. Record its own
+digest and observed results. Source correspondence is available through
+`build.verify_source_archive(source, archive, channel="ego")` when importing the
+native build module. The aggregate
+`native-profile.py` retains its documented native-channel/version pins; a different
+channel or native version requires explicit matching-environment proof and must
+not be passed off as that pinned profile.

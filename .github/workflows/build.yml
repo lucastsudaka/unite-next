@@ -16,6 +16,7 @@ on:
       - README.md
       - CHANGELOG.md
       - LICENSE
+      - LICENSES/**
       - NOTICE
       - docs/**
       - logo.svg
@@ -68,9 +69,14 @@ jobs:
       - name: Build and validate archive
         run: /usr/bin/python3 tools/build.py package
 
+      - name: Build the independent EGO submission package
+        run: /usr/bin/python3 tools/build.py package --channel ego
+
       - name: Prepare the exact artifact for isolated desktop acceptance
         if: ${{ matrix.fedora == 44 && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-        run: /usr/bin/python3 tools/candidate.py prepare
+        run: |
+          /usr/bin/python3 tools/candidate.py prepare
+          /usr/bin/python3 tools/candidate.py prepare-ego
 
       # Transfer is immutable; the release workflow publishes these accepted bytes.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -78,6 +84,15 @@ jobs:
         with:
           name: unite-next-native-candidate
           path: build/candidate/*
+          if-no-files-found: error
+          overwrite: false
+          compression-level: 0
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ matrix.fedora == 44 && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        with:
+          name: unite-next-ego-candidate
+          path: build/ego-candidate/*
           if-no-files-found: error
           overwrite: false
           compression-level: 0

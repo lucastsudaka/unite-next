@@ -49,14 +49,14 @@ class CandidateTests(unittest.TestCase):
         self.original = self.zip_bytes(self.payload, compressed=True)
         self.digest = hashlib.sha256(self.original).hexdigest()
         self.event = self.root / "event.json"
-        self.event.write_text(json.dumps({"repository": {"private": True}}))
+        self.event.write_text(json.dumps({"repository": {"private": False}}))
         self.environment = {"GITHUB_REPOSITORY": "lucastsudaka/unite-next",
                             "GITHUB_REF": "refs/heads/master", "GITHUB_SHA": self.commit,
                             "GITHUB_EVENT_NAME": "push", "GITHUB_EVENT_PATH": str(self.event),
                             "REVIEWED_COMMIT": self.commit, "REQUESTED_VERSION": "73",
                             "ACCEPTED_RUN_ID": "123", "ACCEPTED_ARTIFACT_ID": "456",
                             "ACCEPTED_SHA256": self.digest, "GH_TOKEN": "fixture-token"}
-        self.repository = {"private": True, "fork": False,
+        self.repository = {"private": False, "fork": False,
                            "full_name": "lucastsudaka/unite-next", "default_branch": "master"}
         self.run = {"status": "completed", "conclusion": "success", "event": "push",
                     "head_branch": "master", "head_sha": self.commit,
@@ -71,7 +71,7 @@ class CandidateTests(unittest.TestCase):
         self.addCleanup(network.stop)
 
     def git(self, *arguments):
-        return subprocess.check_output(["git", *arguments], cwd=self.root,
+        return subprocess.check_output(["git", "-c", "maintenance.auto=false", "-c", "gc.auto=0", *arguments], cwd=self.root,
                                        stderr=subprocess.STDOUT, text=True, timeout=5)
 
     def zip_bytes(self, payload, *, compressed=False, mode=None):
@@ -89,7 +89,7 @@ class CandidateTests(unittest.TestCase):
     def receipt(self, digest):
         return {"repository": "lucastsudaka/unite-next", "source_commit": self.commit,
                 "uuid": "unite-next@lucastsudaka.github.io", "version": 73,
-                "archive": "unite-next-v73.zip", "sha256": digest}
+                "channel": "native", "archive": "unite-next-v73.zip", "sha256": digest}
 
     def accepted(self, data=None):
         data = self.original if data is None else data
@@ -109,7 +109,7 @@ class CandidateTests(unittest.TestCase):
     def assert_not_transferred(self):
         self.assertFalse((self.build / "accepted-release").exists())
 
-    def test_prepare_binds_private_master_checkout_and_copies_original_archive(self):
+    def test_prepare_binds_public_master_checkout_and_copies_original_archive(self):
         original = self.reference.read_bytes()
         digest = hashlib.sha256(original).hexdigest()
         result = candidate.prepare_candidate(self.root, self.environment)
@@ -129,15 +129,49 @@ class CandidateTests(unittest.TestCase):
         for key, value in cases:
             with self.subTest(key=key), self.assertRaises(ValueError):
                 candidate.prepare_candidate(self.root, {**self.environment, key: value})
-        for value in (False, None, "true", 1):
+        for value in (True, None, "false", 0):
             self.event.write_text(json.dumps({"repository": {"private": value}}))
             with self.subTest(private=value), self.assertRaises(ValueError):
                 candidate.prepare_candidate(self.root, self.environment)
-        self.event.write_text(json.dumps({"repository": {"private": True}}))
+        self.event.write_text(json.dumps({"repository": {"private": False}}))
         self.metadata_path.write_text(json.dumps({**self.metadata, "url": "https://github.com/foreign/project"}))
         with self.assertRaises(ValueError):
             candidate.prepare_candidate(self.root, self.environment)
         self.assertFalse((self.build / "candidate").exists())
+
+    def test_ego_candidate_retains_bytes_and_binds_a_separate_channel(self):
+        ego = self.build / "ego"
+        ego.mkdir()
+        filename = self.metadata["uuid"] + ".shell-extension.zip"
+        payload = {**self.payload, "metadata.json": (json.dumps(
+            {**{key: value for key, value in self.metadata.items() if key != "version"},
+             "version-name": "73"}, indent=2) + "\n").encode()}
+        data = self.zip_bytes(payload, compressed=True)
+        (ego / filename).write_bytes(data)
+        native_before = self.reference.read_bytes()
+        result = candidate.prepare_candidate(self.root, self.environment, channel="ego")
+        self.assertEqual(result["channel"], "ego")
+        self.assertEqual(result["archive"], filename)
+        self.assertEqual(result["sha256"], hashlib.sha256(data).hexdigest())
+        self.assertEqual((self.build / "ego-candidate" / filename).read_bytes(), data)
+        self.assertFalse((self.build / "candidate").exists())
+        self.assertEqual(self.reference.read_bytes(), native_before)
+
+    def test_ego_candidate_rejects_renamed_native_changed_runtime_and_modes(self):
+        ego = self.build / "ego"
+        ego.mkdir()
+        filename = self.metadata["uuid"] + ".shell-extension.zip"
+        metadata = {key: value for key, value in self.metadata.items() if key != "version"}
+        metadata["version-name"] = "73"
+        payload = {**self.payload, "metadata.json": (json.dumps(metadata, indent=2) + "\n").encode()}
+        for data in (self.reference.read_bytes(),
+                     self.zip_bytes({**payload, "extension.js": b"unexpected change"}),
+                     self.zip_bytes(payload, mode=stat.S_IFREG | 0o600)):
+            with self.subTest(digest=hashlib.sha256(data).hexdigest()):
+                (ego / filename).write_bytes(data)
+                with self.assertRaises(ValueError):
+                    candidate.prepare_candidate(self.root, self.environment, channel="ego")
+                self.assertFalse((self.build / "ego-candidate").exists())
 
     def test_prepare_preserves_existing_directory_and_rejects_symbolic_archive(self):
         directory = self.build / "candidate"
@@ -191,8 +225,8 @@ class CandidateTests(unittest.TestCase):
                 candidate.verify_origin(self.root, {**self.environment, name: value},
                                         lambda path: self.fail("Invalid input accessed the API"))
 
-    def test_origin_rejects_public_fork_wrong_repository_or_default_branch(self):
-        for key, value in [("private", False), ("private", 1), ("fork", True),
+    def test_origin_rejects_private_fork_wrong_repository_or_default_branch(self):
+        for key, value in [("private", True), ("private", 0), ("fork", True),
                            ("full_name", "foreign/project"), ("default_branch", "development")]:
             with self.subTest(key=key):
                 original = self.repository
@@ -246,7 +280,7 @@ class CandidateTests(unittest.TestCase):
         self.assertEqual({path.name: path.read_bytes() for path in directory.iterdir()}, before)
 
     def test_transfer_rejects_digest_manifest_source_identity_and_checksum_mismatch(self):
-        for change in ("digest", "commit", "repository", "uuid", "version", "boolean-version", "archive", "checksum"):
+        for change in ("digest", "commit", "repository", "uuid", "version", "boolean-version", "channel", "archive", "checksum"):
             with self.subTest(change=change):
                 directory = self.accepted()
                 receipt = self.receipt(self.digest)

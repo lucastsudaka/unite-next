@@ -2,171 +2,138 @@ import Gio from 'gi://Gio'
 import GLib from 'gi://GLib'
 import * as Convenience from './convenience.js'
 import { runCleanup } from './resources.js'
+import { updateGtkFile } from './gtk-files.js'
 
 const GTK_VERSIONS = [3, 4]
-
-function isAbsPath(value) {
-  return value.toString().startsWith('/')
-}
-
-function isRelPath(value) {
-  return value.toString().startsWith('@/')
-}
-
-function isFilePath(value) {
-  return isAbsPath(value) || isRelPath(value)
-}
-
-function filePath(parts) {
-  const parse = part => part ? part.replace(/^@/, '') : ''
-  const root  = isAbsPath(parts) ? [] : [Convenience.getPath()]
-  const paths = root.concat(parts).map(parse)
-
-  return GLib.build_filenamev(paths)
-}
 
 function userStylesPath(version) {
   return GLib.build_filenamev([GLib.get_user_config_dir(), `gtk-${version}.0`, 'gtk.css'])
 }
 
-function updateFile(path, transform) {
-  const file = Gio.File.new_for_path(path)
-  let contents = ''
-  let etag = null
-  let originalBytes = null
-  try {
-    const [, bytes, tag] = file.load_contents(null)
-    contents = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-    etag = tag
-    originalBytes = bytes
-  } catch (error) {
-    if (!error.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND)) throw error
-  }
-  const updated = transform(contents)
-  if (updated === contents) return
-  if (etag === null) {
-    const directory = file.get_parent()
-    try {
-      directory.make_directory_with_parents(null)
-    } catch (error) {
-      if (!error.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.EXISTS)) throw error
-    }
-    // Complete a private stage before exclusive publication. GLocalFile.move()
-    // performs a destination check followed by rename(), so it is not a CAS.
-    const stage = directory.get_child(`.unite-next-gtk-${GLib.uuid_string_random()}.css`)
-    let ownsStage = false
-    let failure = null
-    try {
-      const stream = stage.create(Gio.FileCreateFlags.PRIVATE, null)
-      ownsStage = true
-      try {
-        stream.write_all(new TextEncoder().encode(updated), null)
-      } catch (writeError) {
-        try {
-          stream.close(null)
-        } catch (closeError) {
-          throw new AggregateError([writeError, closeError], 'GTK staging write and close failed')
-        }
-        throw writeError
-      }
-      stream.close(null)
-
-      const process = Gio.Subprocess.new(
-        ['/usr/bin/timeout', '--foreground', '--signal=KILL', '1s',
-          '/usr/bin/ln', '--no-target-directory', '--', stage.get_path(), file.get_path()],
-        Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
-      )
-      const [, , stderr] = process.communicate_utf8(null, null)
-      if (!process.get_successful()) {
-        const status = process.get_if_exited() ? process.get_exit_status() : `signal ${process.get_term_sig()}`
-        throw new Error(`GTK stylesheet publication failed (status ${status}): ${stderr.trim() || 'ln failed'}`)
-      }
-    } catch (error) {
-      failure = error
-    } finally {
-      try {
-        if (ownsStage) stage.delete(null)
-      } catch (cleanupError) {
-        if (!cleanupError.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND)) {
-          if (failure) throw new AggregateError([failure, cleanupError], 'GTK publication and staging cleanup failed')
-          throw cleanupError
-        }
-      }
-    }
-    if (failure) throw failure
-  } else {
-    // Local etags are timestamp-derived and can collide. Reject an already
-    // observed conflict before invoking the recoverable native transaction.
-    const [, currentBytes] = file.load_contents(null)
-    if (currentBytes.length !== originalBytes.length ||
-        currentBytes.some((byte, index) => byte !== originalBytes[index])) {
-      throw new Gio.IOErrorEnum({
-        code: Gio.IOErrorEnum.WRONG_ETAG,
-        message: `GTK stylesheet contents changed before replacement: ${path}`
-      })
-    }
-    // Native GIO replacement checks its etag before writing/renaming, leaving
-    // a lost-update interval. Exchange retains the actual displaced inode.
-    const helper = Convenience.getDir().get_child('gtk-files.py').get_path()
-    const process = Gio.Subprocess.new(
-      ['/usr/bin/timeout', '--foreground', '--signal=KILL', '1s', '/usr/bin/python3', '-B', helper],
-      Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
-    )
-    const [, output, errors] = process.communicate_utf8(JSON.stringify({
-      path: file.get_path(), expected: GLib.base64_encode(originalBytes),
-      updated: GLib.base64_encode(new TextEncoder().encode(updated))
-    }), null)
-    if (!process.get_successful()) {
-      const status = process.get_if_exited() ? process.get_exit_status() : `signal ${process.get_term_sig()}`
-      throw new Error(`GTK stylesheet replacement failed (status ${status}): ${errors.trim() || 'inspect .unite-next-gtk-recovery before retrying'}`)
-    }
-    const { recovery } = JSON.parse(output)
-    console.info(`Unite Next: GTK stylesheet recovery retained at ${recovery}`)
-  }
+function reportRecovery(result, reported) {
+  if (!result) return
+  const directory = GLib.path_get_dirname(result.recovery)
+  if (reported.has(directory)) return
+  reported.add(directory)
+  console.info(`Unite Next: GTK stylesheet recoveries retained in ${directory}`)
 }
 
 export function resetGtkStyles() {
-  runCleanup(GTK_VERSIONS.map(version => () => updateFile(
+  const reported = new Set()
+  runCleanup(GTK_VERSIONS.map(version => () => reportRecovery(updateGtkFile(
     userStylesPath(version), style => style.replace(/\/\* UNITE_NEXT ([\s\S]*?) UNITE_NEXT \*\/\n/g, '')
-  )))
+  ).finish(), reported)))
 }
 
 class GtkStyle {
-  constructor(version, name, data) {
-    const content = this.parse(data, version)
-
+  constructor(version, name, data, report) {
+    this.report = report
+    this.version = version
+    this.name = name
     this.filepath = userStylesPath(version)
-    this.contents = `/* UNITE_NEXT ${name} */\n${content}\n/* ${name} UNITE_NEXT */\n`
+    this.blocks = new Set()
+    this.pending = null
+    this.dirty = false
+    this.setContents(data)
   }
 
-  parse(data, ver) {
-    if (isFilePath(data)) {
-      const path = filePath(['styles', `gtk${ver}`, data])
+  setContents(data) {
+    const value = data.toString()
+    let content = data
+    if (value.startsWith('/') || value.startsWith('@/')) {
+      const parts = ['styles', `gtk${this.version}`, data]
+      const path = GLib.build_filenamev((value.startsWith('/') ? [] : [Convenience.getPath()])
+        .concat(parts).map(part => part.replace(/^@/, '')))
       const uri = Gio.File.new_for_path(path).get_uri()
       const escaped = uri.replace(/[\\'\n\r\f]/g, character => `\\${character.codePointAt(0).toString(16)} `)
-      return `@import url('${escaped}');`
-    } else {
-      return data
+      content = `@import url('${escaped}');`
     }
+    this.contents = `/* UNITE_NEXT ${this.name} */\n${content}\n/* ${this.name} UNITE_NEXT */\n`
+    this.blocks.add(this.contents)
+    this.dirty = true
+  }
+
+  _transaction(load) {
+    const blocks = [...this.blocks]
+    const contents = load ? this.contents : ''
+    return updateGtkFile(this.filepath, existing => {
+      let foreign = existing
+      for (const block of blocks) foreign = foreign.split(block).join('')
+      return contents + foreign
+    })
   }
 
   load() {
-    updateFile(this.filepath, existing => existing.includes(this.contents) ? existing : this.contents + existing)
+    if (this.pending) return
+    this.dirty = false
+    const pending = this._transaction(true)
+    this.pending = pending
+    try {
+      pending.watch((error, result) => {
+        this.pending = null
+        if (error) console.error(`Unite Next GTK stylesheet update failed: ${error.message}`)
+        else this.report(result)
+        if (this.dirty) this.load()
+      })
+    } catch (error) {
+      this.pending = null
+      throw error
+    }
+  }
+
+  flush() {
+    do {
+      const pending = this.pending
+      this.pending = null
+      if (pending) this.report(pending.finish())
+      if (!this.dirty) return
+      this.dirty = false
+      this.report(this._transaction(true).finish())
+    } while (this.dirty)
   }
 
   unload() {
-    updateFile(this.filepath, existing => existing.replace(this.contents, ''))
+    this.dirty = false
+    const pending = this.pending
+    this.pending = null
+    runCleanup([
+      () => { if (pending) this.report(pending.finish()) },
+      () => this.report(this._transaction(false).finish()),
+      () => this.blocks.clear()
+    ])
   }
 }
 
 export class GtkStyles {
   constructor(name, data, versions = GTK_VERSIONS) {
+    this.name = name
+    this.reported = new Set()
     const items = [].concat(versions).filter(ver => GTK_VERSIONS.includes(ver))
-    this.styles = items.map(ver => new GtkStyle(ver, name, data))
+    this.styles = items.map(ver => new GtkStyle(ver, name, data, result => reportRecovery(result, this.reported)))
   }
 
   load() {
     this.styles.forEach(style => style.load())
+  }
+
+  update(data, versions = GTK_VERSIONS) {
+    const items = [].concat(versions).filter(ver => GTK_VERSIONS.includes(ver))
+    const removed = this.styles.filter(style => !items.includes(style.version))
+    runCleanup(removed.map(style => () => style.unload()))
+    this.styles = this.styles.filter(style => items.includes(style.version))
+    for (const version of items) {
+      let style = this.styles.find(entry => entry.version === version)
+      if (style) style.setContents(data)
+      else {
+        style = new GtkStyle(version, this.name, data, result => reportRecovery(result, this.reported))
+        this.styles.push(style)
+      }
+      style.load()
+    }
+  }
+
+  flush() {
+    runCleanup(this.styles.map(style => () => style.flush()))
   }
 
   unload() {

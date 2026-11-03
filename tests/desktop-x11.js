@@ -74,7 +74,7 @@ export async function runX11(owner, settings) {
         const controlsVisible = () => Main.panel.statusArea.uniteNextWindowControls.container.visible
         await until(() => label() === title && controlsVisible(), 'primary XWayland title and controls shown')
         settings.set_string('hide-window-titlebars', 'always')
-        await until(() => owner.windowManager.getWindow(win)?.decorations.owned, 'XWayland hints changed')
+        await until(() => owner.windowManager.getWindow(win)?.decorations.owned?.applied, 'XWayland hints changed')
         const hidden = property(data.xid)
         print(`XWAYLAND_HIDDEN ${JSON.stringify({ mode, hidden, move: win.allows_move(), resize: win.allows_resize(), decorated: win.decorated })}`)
         assert(hidden.type === '_MOTIF_WM_HINTS', 'Motif type was changed')

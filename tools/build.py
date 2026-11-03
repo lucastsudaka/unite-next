@@ -28,7 +28,7 @@ REQUIRED_FILES = ("extension.js", "prefs.js", "metadata.json", "settings.ui",
                   "button-widgets.js", "panel-features.js", "layout-features.js",
                   "extension-lifecycle.js", "window-policy.js", "decorations.js",
                   "preferences-widget.js",
-                  "x11.py", "gtk-files.py",
+                  "x11.py", "gtk-files.js", "process-jobs.js",
                   "schemas/org.gnome.shell.extensions.unite-next.gschema.xml")
 PARSE_JS = """
 const GLib = imports.gi.GLib;
@@ -76,7 +76,7 @@ def source_files(root=ROOT):
     source = root / EXTENSION
     paths = {path for pattern in ("*.js", "*.ui", "metadata.json")
              for path in source.glob(pattern)}
-    for name in ("x11.py", "gtk-files.py"):
+    for name in ("x11.py",):
         helper = source / name
         if helper.exists():
             paths.add(helper)
@@ -97,7 +97,10 @@ def source_files(root=ROOT):
         if path.suffix not in (".js", ".py", ".ui", ".json", ".css", ".svg", ".theme", ".xml"):
             raise ValueError(f"Unexpected runtime resource: {relative}")
         files[relative] = path.read_bytes()
-    for name in ("LICENSE", "NOTICE"):
+    licenses = root / "LICENSES"
+    if licenses.is_symlink() or not licenses.is_dir():
+        raise ValueError("Missing or symbolic distribution license directory: LICENSES")
+    for name in ("LICENSE", "NOTICE", "LICENSES/GPL-2.0.txt"):
         notice = root / name
         if notice.is_symlink() or not notice.is_file():
             raise ValueError(f"Missing or symbolic distribution notice: {name}")
@@ -230,24 +233,46 @@ def validate_archive(path, expected):
                 raise ValueError(f"Archive bytes differ from selected source: {name}")
 
 
-def verify_source_archive(root, archive):
+def channel_files(metadata, files, channel):
+    """Keep native source identity while projecting only EGO-controlled fields."""
+    if channel not in ("native", "ego"):
+        raise ValueError(f"Unknown package channel: {channel}")
+    selected = dict(files)
+    if channel == "ego":
+        label = str(metadata["version"])
+        if not re.fullmatch(r"[0-9]{1,16}", label):
+            raise ValueError("EGO version-name must be the native version in at most 16 digits")
+        projected = dict(metadata)
+        projected.pop("version")
+        projected["version-name"] = label
+        selected["metadata.json"] = (json.dumps(projected, indent=2) + "\n").encode("utf-8")
+    return selected
+
+
+def verify_source_archive(root, archive, *, channel="native"):
     """Validate one existing ZIP against selected sources without rebuilding it."""
     metadata, files, catalogs = check(root)
-    expected = dict(files)
+    expected = channel_files(metadata, files, channel)
     for language in LANGUAGES:
         expected[f"locale/{language}/LC_MESSAGES/{metadata['gettext-domain']}.mo"] = translations.run(
             ["msgfmt", "--check", "--output-file=-", "-"], cwd=root,
             data=catalogs[f"{language}.po"])
     validate_archive(archive, expected)
-    return {"uuid": metadata["uuid"], "version": metadata["version"], "payload_files": len(expected)}
+    return {"uuid": metadata["uuid"], "version": metadata["version"],
+            "channel": channel, "payload_files": len(expected)}
 
 
-def package(root=ROOT, output_dir=None, version=None):
+def package(root=ROOT, output_dir=None, version=None, *, channel="native"):
     metadata, files, selected_catalogs = check(root, version)
+    files = channel_files(metadata, files, channel)
     destination = Path(output_dir) if output_dir is not None else root / "build"
     destination = destination.resolve()
     if destination == root.resolve() or destination.is_relative_to((root / EXTENSION).resolve()):
         raise ValueError("Package output must be outside runtime source directories")
+    if channel == "ego":
+        destination = (destination / "ego").resolve()
+        if destination == root.resolve() or destination.is_relative_to((root / EXTENSION).resolve()):
+            raise ValueError("Package output must be outside runtime source directories")
     destination.mkdir(parents=True, exist_ok=True)
     # Staging shares the destination filesystem so os.replace is atomic.
     with tempfile.TemporaryDirectory(prefix=".unite-package-", dir=destination) as temporary:
@@ -277,7 +302,9 @@ def package(root=ROOT, output_dir=None, version=None):
         run(argv, cwd=stage)
         candidate = output / f"{metadata['uuid']}.shell-extension.zip"
         validate_archive(candidate, expected)
-        final = destination / f"unite-next-v{metadata['version']}.zip"
+        filename = (f"{metadata['uuid']}.shell-extension.zip" if channel == "ego" else
+                    f"unite-next-v{metadata['version']}.zip")
+        final = destination / filename
         os.replace(candidate, final)
     return final
 
@@ -288,7 +315,11 @@ def main():
     parser.add_argument("command", choices=("check", "package", "version"))
     parser.add_argument("--version", help="Require this exact metadata extension version")
     parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--channel", choices=("native", "ego"), default="native",
+                        help="Package native version metadata or the independent EGO projection")
     args = parser.parse_args()
+    if args.channel != "native" and args.command != "package":
+        parser.error("--channel is only supported for package")
     try:
         if args.command == "version":
             print(identity(version=args.version)["version"])
@@ -296,7 +327,7 @@ def main():
             check(version=args.version)
             print("source checks: passed")
         else:
-            print(package(output_dir=args.output_dir, version=args.version))
+            print(package(output_dir=args.output_dir, version=args.version, channel=args.channel))
     except (OSError, ValueError, ET.ParseError, SyntaxError, zipfile.BadZipFile,
             subprocess.SubprocessError) as error:
         print(f"{args.command} failed: {error}", file=sys.stderr)

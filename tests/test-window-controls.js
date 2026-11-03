@@ -273,7 +273,7 @@ test('monitor and restriction events update existing window eligibility', state 
 test('maximization property notifications update policies without a size event', state => {
   const owner = state.activatePanel()
   let hidden = false
-  state.model.decorations = { hide() { hidden = true }, show() { hidden = false }, reset() {} }
+  state.model.decorations = { hide() { hidden = true }, show() { hidden = false }, stop() {} }
   const states = [
     { horizontal: false, vertical: false, signal: 'notify::maximized-horizontally', tiled: false, maximized: false, both: false },
     { horizontal: false, vertical: true, signal: 'notify::maximized-vertically', tiled: true, maximized: false, both: true },
@@ -310,9 +310,9 @@ test('primary-only monitor changes update every existing window and disconnect o
   state.manager.registerWindow(other)
   let focusedHidden = false
   let otherHidden = false
-  state.model.decorations = { hide() { focusedHidden = true }, show() { focusedHidden = false }, reset() {} }
+  state.model.decorations = { hide() { focusedHidden = true }, show() { focusedHidden = false }, stop() {} }
   state.manager.getWindow(other).decorations = {
-    hide() { otherHidden = true }, show() { otherHidden = false }, reset() {}
+    hide() { otherHidden = true }, show() { otherHidden = false }, stop() {}
   }
   state.settings.set('hide-window-titlebars', 'always')
   equal([focusedHidden, otherHidden], [true, false], 'Initial primary-only decorations')

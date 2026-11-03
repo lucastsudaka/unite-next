@@ -44,7 +44,7 @@ def main():
                                 cwd=ROOT, env=env, timeout=30)
         if result.returncode or sys.argv[1:]:
             return result.returncode
-        for script in ("test-resources.js", "test-features.js", "test-window-policy.js",
+        for script in ("test-resources.js", "test-process-jobs.js", "test-features.js", "test-window-policy.js",
                        "test-panel.js", "test-window-controls.js", "test-scoped-styles.js"):
             result = subprocess.run(["gjs", "-m", str(ROOT / "tests" / script)],
                                     cwd=ROOT, env=env, timeout=30)

@@ -19,11 +19,11 @@ reproduction. Build outputs belong under the ignored `build` directory.
 | --- | --- | --- |
 | Activation, upstream exclusion and complete cleanup | `extension.js`, `extension-lifecycle.js`, `resources.js`, `features.js` | `tests/test-lifecycle.js`, `tests/test-resources.js`, `tests/test-features.js`, `tests/desktop-conflict.js`, `tests/desktop-failures.js` |
 | Focused window eligibility, monitor policy and panel actions | `window.js`, `window-policy.js`, `panel-features.js`, `button-widgets.js` | `tests/test-window-policy.js`, `tests/test-window-controls.js`, `tests/test-panel.js`, `tests/desktop-input.js`, `tests/desktop-monitors.js` |
-| GTK and Motif preservation | `gtk-styles.js`, `gtk-files.py`, `decorations.js`, `x11.py` | `tests/test-gtk-files.js`, `tests/test_gtk_files.py`, `tests/test_x11.py`, `tests/desktop-capabilities.js`, `tests/desktop-x11.js` |
+| GTK and Motif preservation | `gtk-styles.js`, `gtk-files.js`, `process-jobs.js`, `decorations.js`, `x11.py` | `tests/test-gtk-files.js`, `tests/test-process-jobs.js`, `tests/test_gtk_files.py`, `tests/test_x11.py`, `tests/desktop-capabilities.js`, `tests/desktop-x11.js` |
 | Theme discovery, assets and CSS confinement | `theme.js`, `scoped-styles.js`, `styles.js`, `shell-styles.js` | `tests/test-scoped-styles.js`, `tests/test-window-controls.js`, `tests/desktop-corrections.js` |
 | Desktop layout | `layout-features.js` | `tests/desktop.js`, `tests/desktop-corrections.js` |
 | Preferences and localization | `prefs.js`, `preferences-widget.js`, `preferences-bindings.js`, schema/UI, gettext sources | `tests/test_preferences.py`, `tests/preferences.mjs`, `tests/desktop-preferences.js` |
-| Accepted artifact origin and unchanged transfer | `tools/candidate.py`, verification workflows | `tests/test_candidate.py` |
+| Accepted artifact origin, channel and unchanged transfer | `tools/candidate.py`, verification workflows | `tests/test_candidate.py`, `tests/test_release.py` |
 | Source/package identity and import boundaries | `tools/build.py`, metadata, `tools/translations.py` | `tests/test_build.py` |
 
 Runtime paths above are inside `unite-next@lucastsudaka.github.io/`.
@@ -42,13 +42,19 @@ propagates to acquisition rollback; teardown disconnects the subscription before
 destroying its consumers. Button actions resolve the current target at activation.
 `window-policy.js` owns pure eligibility rules, and `decorations.js` owns decoration
 state independently of the native Motif subprocess transport.
+The helper reports an exact target-correlated `windowGone` result only for core
+property requests rejected with BadWindow. The decoration owner accepts that
+result only while draining after the native `unmanaged` signal. Normal completion,
+disable restoration, foreign-property conflicts and other X11 errors remain
+failures.
 
 `resources.js` owns signals, timeouts and complete cleanup; `features.js` owns
 feature transitions without injecting state into feature instances. `settings.js`
 resolves the activation's schema and settings. GTK file transactions and Shell
 styles have separate owners, coordinated by `styles.js`.
 
-Existing GTK files use a bounded Python transaction: a complete private stage is
+Existing GTK files use a GJS/GIO transaction with individually bounded GNU leaf
+commands: a complete private stage is
 atomically exchanged with the current file and the actual displaced inode is
 retained under `.unite-next-gtk-recovery`. The post-exchange comparison detects
 edits made during staging. On conflict, another exchange returns that displaced
@@ -58,6 +64,15 @@ Every displaced inode remains recoverable, including writes through descriptors
 held by other editors after the transaction. No automatic recovery garbage
 collection is safe against such writers. Tests cover these boundaries and
 timeouts; this protocol deliberately makes no linearizable CAS claim.
+
+`process-jobs.js` owns private command files, child completion polling and complete
+synchronous draining. X11 hide/show and GTK application/update coalesce while
+commands execute. Removing a GTK owner, including a preference change that removes
+global styling, restores synchronously before releasing ownership. Disable removes
+polling and drains each owner before completing restoration.
+GTK uses `mv --exchange --no-copy`, `ln`, `realpath`, `sync`, `dd` and `timeout` from GNU
+coreutils 9.5 or later. The native GJS owner performs metadata and content checks;
+there is no second GTK scripting process. Local file I/O remains synchronous.
 
 ## Verification levels
 

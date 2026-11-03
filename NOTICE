@@ -39,8 +39,134 @@ Unite Shell credits these projects as inspiration:
 - TopIcons Plus: https://github.com/phocean/TopIcons-plus
 - Extend Left Box: https://github.com/StephenPCG/extend-left-box
 
-The bundled window-control artwork was inherited from the verified upstream
-source. Available upstream records do not establish a separate original author
-or license for every theme; this notice makes no such attribution claim.
-Resource origins, comparison method and limitations are recorded in
-docs/asset-provenance.md in the corresponding sources.
+Window-control artwork — recovered attribution, 2026-11-03
+
+All 327 SVG files in the 26 bundled control-theme families are unchanged from
+the supplying Unite Shell commit above. Theme CSS/manifests have fork changes.
+The contribution records identify the following suppliers to Unite Shell;
+this is not a claim that each supplier authored all of the original artwork:
+- Jonian Guveli / jonian: original built-in themes and subsequent additions
+  and updates; https://github.com/jonian
+- aiosadchy: Adwaita dark; https://github.com/hardpixel/unite-shell/pull/229
+- btd1337: Arrongin, Telinkrin and Prof-Gnome;
+  https://github.com/hardpixel/unite-shell/pull/78
+  https://github.com/hardpixel/unite-shell/pull/157
+- mrprobot: Pop dark/light and Vimix;
+  https://github.com/hardpixel/unite-shell/commit/5e64fa8391acce1cc95392d0f99111bd578fa641
+  https://github.com/hardpixel/unite-shell/commit/f75a660002e348d5dc6374d9584fd6733cbf3455
+  https://github.com/hardpixel/unite-shell/commit/b2b3673c8e5efce55238b44a0a1b94e0c1ad4cdb
+- rohanmohapatra: Flat Remix;
+  https://github.com/hardpixel/unite-shell/pull/169
+- TheLastZombie: Canta; https://github.com/hardpixel/unite-shell/pull/231
+- Simon-L: Nordic; https://github.com/hardpixel/unite-shell/pull/238
+- SlyDeath: McMojave; https://github.com/hardpixel/unite-shell/pull/249
+- gbegkas: Dracula and Sweet;
+  https://github.com/hardpixel/unite-shell/pull/259
+  https://github.com/hardpixel/unite-shell/pull/263
+- natewind: Windwood, described as Ambiance-based;
+  https://github.com/hardpixel/unite-shell/pull/325
+- 42willow: Catppuccin, described as recolored WhiteSur;
+  https://github.com/hardpixel/unite-shell/pull/349
+  https://github.com/hardpixel/unite-shell/issues/348
+
+Recovered original-project records
+
+The Canta, Nordic, Dracula, Sweet and Flat Remix contribution records identify
+their source projects. Other associated projects below have recoverable
+license/author records, but an exact extraction revision tying every bundled
+SVG to those projects has not been established. These notices supplement the
+supplying upstream GPLv3 distribution; they do not relicense every image as
+GPLv3 or constitute a complete original permission chain.
+
+- Canta: Vince Liuice, based on nana-4's Materia.
+  https://github.com/vinceliuice/Canta-theme
+  https://github.com/vinceliuice/Canta-theme/blob/master/AUTHORS
+  GPLv2 text from its historical COPYING is included in LICENSES/GPL-2.0.txt:
+  https://github.com/vinceliuice/Canta-theme/blob/3d055af60365c525c1466e7bf179588d6f2114f6/COPYING
+- Nordic, Sweet and Dracula GTK: Eliver Lara and their contributors; GPLv3.
+  https://github.com/EliverLara/Nordic
+  https://github.com/EliverLara/Sweet
+  https://github.com/dracula/gtk
+  The Nordic contributor reports receiving the author's permission in PR 238;
+  no separate statement from the original author is reproduced here.
+- Flat Remix GTK: daniruiz and contributors; GPLv3.
+  https://github.com/daniruiz/flat-remix-gtk
+- Arc and Vertex: horst3180 and contributors; GPLv3 license texts.
+  https://github.com/horst3180/arc-theme
+  https://github.com/horst3180/vertex-theme
+- Materia / Flat-Plat: nana-4 and contributors; Materia states GPLv2-or-later.
+  https://github.com/nana-4/materia-theme
+- Vimix, Qogir and Mojave: Vince Liuice and contributors; GPLv3 license texts.
+  Their AUTHORS records acknowledge Materia / Flat-Plat or horst3180's Arc.
+  https://github.com/vinceliuice/vimix-gtk-themes
+  https://github.com/vinceliuice/Qogir-theme
+  https://github.com/vinceliuice/Mojave-gtk-theme
+- Arrongin, Telinkrin and Prof-Gnome: paullinuxthemer and contributors;
+  GPLv2 license texts. Arrongin also has a GPLv2-or-later stylesheet notice.
+  https://github.com/paullinuxthemer/Arrongin-GTK
+  https://github.com/paullinuxthemer/Telinkrin-GTK
+  https://github.com/paullinuxthemer/Prof-Gnome
+- United GNOME: godlyranchdressing and contributors; GPLv3-or-later, with
+  Flat-Plat, Arc and Material Design icon credits retained by that project.
+  https://github.com/godlyranchdressing/United-GNOME
+
+WhiteSur project notice (also relevant to the declared Catppuccin derivation)
+
+Source: https://github.com/vinceliuice/WhiteSur-gtk-theme
+Author record: Vince Liuice, .github/AUTHORS in that project.
+The following historical notice predates Unite's WhiteSur addition. It is
+retained from the associated project without asserting an unrecovered exact
+original revision for each bundled image:
+https://github.com/vinceliuice/WhiteSur-gtk-theme/blob/f42a270fb55e2572c5c47fec7d79d2a3ae46cf45/COPYING
+
+Copyright (c) 2021 WhiteSur Developers
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
+OR OTHER DEALINGS IN THE SOFTWARE.
+
+Pop and Yaru project records and mixed licenses
+
+Pop's source project credits System76 and contributors; its copyright manifest
+includes 2019 System76, Inc.; 2017-2018 Canonical; 2009-2015 Red Hat, Inc.;
+2009 Intel Corporation; and 2015 Ruslan Izhbulatov for general files. Its README
+states most files GPLv3-or-later, upstream Adwaita LGPLv2.1, and SVG files
+Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0):
+https://creativecommons.org/licenses/by-sa/4.0/
+https://github.com/pop-os/gtk-theme/blob/master/README.md
+https://github.com/pop-os/gtk-theme/blob/master/debian/copyright
+
+Yaru's source copyright manifest credits 2017-2018 Canonical Ltd.; 2009-2015
+Red Hat, Inc.; 2009 Intel Corporation; and 2015 Ruslan Izhbulatov for general
+files under GPLv3-or-later. It separately credits 2018 Sam Hewitt for icons/*
+under CC BY-SA 4.0. That icon-subset credit is not an attribution of these GTK
+window controls to Sam Hewitt:
+https://github.com/ubuntu/yaru/blob/master/debian/copyright
+https://github.com/ubuntu/yaru/blob/4a6b9b7131da01f159c5314cf1c1b9d8f66ef5d9/debian/copyright
+
+The fork's Pop/Yaru SVGs are unchanged from the supplying Unite commit. No
+exact extraction revision from the associated original projects is claimed.
+No claim is made that every Yaru SVG belongs to its separately licensed icon
+subset. Original project notices and the CC BY-SA license URL are retained
+without replacing these scope and lineage limits with a blanket license.
+
+The Adwaita, Ambiance, Breeze, Default, OSX Arc and Radiance records do not
+establish a separate original artwork grant; Windwood retains its declared
+Ambiance dependency. This is a documented evidence limit, not proof of an
+absence of permission. Per-family sources, comparison method, recovered
+licenses and remaining limits are recorded in docs/asset-provenance.md in the
+corresponding sources. These records do not claim EGO approval.

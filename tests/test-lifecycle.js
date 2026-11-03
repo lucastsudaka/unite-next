@@ -70,6 +70,7 @@ test('GTK foreign bytes survive apply/remove; unchanged reset preserves inode', 
   assert(read(gtk3) === original && inode() === before, 'Unchanged CSS was rewritten')
   const styles = new GtkStyles('test', 'window { padding: 0; }')
   styles.load()
+  styles.flush()
   assert(read(gtk3).endsWith(original), 'Foreign rules were changed')
   styles.unload()
   assert(read(gtk3) === original, 'Foreign CSS did not survive removal')
@@ -495,6 +496,7 @@ test('Motif ownership preserves fields, absence and foreign updates', () => {
       }, get_successful() { return this.ok }
     }) } }
     const decoration = new ServerDecorations({ xid: '0x7', win: { decorated: true, get_frame_type: () => 0 } }, {
+      start(input) { return { finish: () => this.request(input) } },
       border: 1, request(input) {
         const process = mockGio.Subprocess.new()
         const [, output, error] = process.communicate_utf8(JSON.stringify(input))
@@ -505,12 +507,14 @@ test('Motif ownership preserves fields, absence and foreign updates', () => {
     decoration.reset()
     assert(writes === 0, 'Never-modified window received a write')
     decoration.hide()
+    decoration.flush()
     if (initial) {
       assert(property.type === 99 && property.data.join(',') === '3,4,2,17,42,4294967295', 'Unrelated Motif state was lost')
     }
     decoration.reset()
     assert(JSON.stringify(property) === JSON.stringify(initial), 'Original property/absence not restored')
     decoration.hide()
+    decoration.flush()
     property = { type: 99, format: 32, data: [3, 8, 1, 0, 0] }
     throws(() => decoration.reset(), 'Foreign update was overwritten silently')
     assert(property.data[1] === 8 && decoration.owned === null, 'Foreign property was overwritten/retained as owned')
@@ -529,6 +533,7 @@ test('Motif apply conflict releases ownership before later teardown', () => {
     }, get_successful() { return this.ok }
   }) } }
     const decoration = new ServerDecorations({ xid: '0x7', win: { decorated: true, get_frame_type: () => 0 } }, {
+      start(input) { return { finish: () => this.request(input) } },
       border: 1, request(input) {
         const process = mockGio.Subprocess.new()
         const [, output, error] = process.communicate_utf8(JSON.stringify(input))
@@ -536,7 +541,7 @@ test('Motif apply conflict releases ownership before later teardown', () => {
         return JSON.parse(output)
       }
     })
-  throws(() => decoration.hide(), 'Observed foreign update was not reported')
+  throws(() => { decoration.hide(); decoration.flush() }, 'Observed foreign update was not reported')
   assert(decoration.owned === null && decoration.conflicted, 'Foreign state remains falsely owned')
   decoration.reset()
   decoration.hide()
