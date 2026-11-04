@@ -25,7 +25,17 @@ Desktop-only dependencies include a matching GNOME Shell/GJS/Mutter stack, GTK 3
 
 The disposable GNOME 51 container runs as `65534:65534`, with no network or capabilities, a read-only root/source, private writable results and disposable `/tmp`/`/run`. Keep the native glycin/bubblewrap image sandbox and default seccomp active. On the tested SELinux-enforcing host, the default outer container label denied bubblewrap's nested `devpts` mount. The verified invocation adds `--security-opt label=type:container_engine_t`: Podman supports an explicit process type, and this SELinux domain permits nested container mounts. It is broader than the default container domain and is used only for this disposable test environment. Labels remain enforced; the extension and image sandbox are unchanged. The focused native bubblewrap probe must succeed before the full journey; a loader failure remains an acceptance failure. See [Podman 6.1.4 security options](https://github.com/podman-container-tools/podman/blob/v6.1.4/docs/source/markdown/options/security-opt.md) and the [container SELinux policy](https://github.com/containers/container-selinux/blob/main/container.te).
 
-The tested host and pinned container have Portuguese locale data but omit the Shell application catalog. Their disposable test profile therefore adds the matching official [50.5 Portuguese catalog source](https://github.com/GNOME/gnome-shell/blob/50.5/po/pt_BR.po) or [51.0 source](https://github.com/GNOME/gnome-shell/blob/51.0/po/pt_BR.po). Compile that exact version with `msgfmt --check`, preserve the environment's existing `pt_BR/LC_MESSAGES` files in a disposable directory, and add the compiled `gnome-shell.mo` there. Before starting Shell, mount that directory read-only at `/usr/share/locale/pt_BR/LC_MESSAGES` inside the test namespace/container. This neither installs a host package nor changes the fork ZIP. The verified compiled catalog hashes are `8d2ab765cdc31cb521ed82802357aac9de6b1c2787a08a9ecd1127a62dcca65f` for 50.5 and `4d1a773619f5c11c8dffa701e5e03ea2bb17d342d6d69744898a0112c97c1f3d` for 51.0. A different native version needs its own matching catalog and verification.
+The tested environments can have Portuguese locale data while omitting the Shell application catalog. Their disposable profiles therefore add the matching official Portuguese catalog. Compile that exact version with `msgfmt --check`, preserve the environment's existing `pt_BR/LC_MESSAGES` files in a disposable directory, and add the compiled `gnome-shell.mo` there. Before starting Shell, mount that directory read-only at `/usr/share/locale/pt_BR/LC_MESSAGES` inside the test namespace/container. This neither installs a host package nor changes the fork ZIP.
+
+The public runner's finite version/catalog registry is:
+
+| Native version | Official catalog source | Verified compiled MO SHA-256 |
+| --- | --- | --- |
+| 50.5 | [pt_BR.po](https://github.com/GNOME/gnome-shell/blob/50.5/po/pt_BR.po) | `8d2ab765cdc31cb521ed82802357aac9de6b1c2787a08a9ecd1127a62dcca65f` |
+| 50.6 | [pt_BR.po](https://github.com/GNOME/gnome-shell/blob/50.6/po/pt_BR.po) | `8d2ab765cdc31cb521ed82802357aac9de6b1c2787a08a9ecd1127a62dcca65f` |
+| 51.0 | [pt_BR.po](https://github.com/GNOME/gnome-shell/blob/51.0/po/pt_BR.po) | `4d1a773619f5c11c8dffa701e5e03ea2bb17d342d6d69744898a0112c97c1f3d` |
+
+The 50.5 and 50.6 compiled catalogs are identical; both version-specific sources were verified separately. The selected catalog must match the version's registered hash, whether it comes from an explicit override or the installed environment. Original native catalogs remain preserved in the exported snapshot and disposable overlay; a mismatched installed catalog fails visibly instead of substituting another version. Accepted bytes must also parse as valid MO data and pass functional native gettext lookup. A different native version needs an admitted registry entry with matching source/catalog proof; passing an arbitrary expected digest cannot bypass that requirement.
 
 After packaging, for each supported native environment:
 
@@ -50,9 +60,40 @@ Inspect scenario results and diagnostics, including unexpected errors and proces
 
 ## Executable native profiles
 
-`tools/native-profile.py` prepares the current explicit GNOME 50.5 host and GNOME 51.0 image profiles around the unchanged native runner. It uses only an already installed host stack and an already available, immutable local Podman image ID. It never installs packages, pulls/builds images, changes host catalogs or retries a failed scenario. The image must retain its `65534:65534` user, native sandbox, default seccomp and the documented SELinux process type.
+The GNOME 51.0 [image recipe](../tests/containers/Containerfile.gnome51) fixes the
+Fedora 45 release repository, its `repomd.xml` SHA-256
+`b773d5b26da503ff3512dd90059216904a980ae046e77ec3cb6e65aec62a5802`,
+and all 16 directly requested package NEVRAs. Other repositories are disabled;
+RPM signature checking uses the keys in the pinned Fedora base. The recipe
+checks the metadata both before installation and in DNF's actual cache, compares
+requested and installed identities, and requires native Shell 51.0. Unavailable
+packages or a changed source fail visibly. See the official
+[DNF5 exact-version installation semantics](https://dnf5.readthedocs.io/en/latest/commands/install.8.html).
 
-Supply the matching compiled Shell catalogs described above if those environments do not already contain them. Explicit catalog overrides must match the documented native-version hashes; every existing native catalog is copied unchanged into the disposable overlay. For the currently accepted local image:
+Image provisioning is a separate operation from the offline acceptance runner.
+Use an unused tag and output path, leaving previous accepted images intact. For
+example, create a new empty build context and retain the resulting image ID:
+
+```bash
+mkdir build/native51-review-new
+podman build --pull=never --force-rm \
+  --file tests/containers/Containerfile.gnome51 \
+  --iidfile build/native51-review-new/image.iid \
+  --tag localhost/unite-native51-review:new \
+  build/native51-review-new
+```
+
+Do not reuse that tag or directory for a later review. Inspect the new immutable
+image ID and preserve `/usr/share/unite-native51/` from the image: it records the
+repository, metadata hash, requested/selected package identities, full installed
+RPM manifest and observed native version. Bind acceptance to that image ID and
+the reviewed recipe bytes. The earlier accepted `d67907…` image remains usable
+for its recorded environment; selecting it reuses an existing image rather than
+running this new recipe.
+
+`tools/native-profile.py` prepares one unchanged native or EGO ZIP around the native runner. Its defaults remain the native channel, GNOME 50.5 installed host and GNOME 51.0 image. Each major can explicitly select `host` or `image`; the installed host can supply only one of the two majors, so `host`/`host` is rejected. Images must already exist locally and are selected by immutable `sha256:` image IDs, never mutable tags. Each must retain its `65534:65534` user, native sandbox, default seccomp and the documented SELinux process type. The runner never installs packages, pulls/builds images, changes host catalogs, rebuilds the ZIP or retries a failed scenario.
+
+Supply the matching compiled Shell catalogs described above if those environments do not already contain them. Every existing native catalog is copied unchanged into the disposable overlay. The original CLI remains valid with the previously accepted GNOME 51.0 image:
 
 ```bash
 /usr/bin/python3 tools/native-profile.py \
@@ -63,12 +104,34 @@ Supply the matching compiled Shell catalogs described above if those environment
   --output build/native-matrix
 ```
 
-The output directory must be new. Add `--preflight-only` to validate source/archive correspondence, native resource versions, catalog preservation and fresh-process functional GLib translation without starting a compositor. `preflight_passed` does not establish desktop acceptance. A complete run executes full and conflict journeys once on each major, using one unchanged ZIP. `receipt.json` links command outputs, native results, process cleanup, image identity, catalogs and the declared source-input manifest; it records Git HEAD/dirtiness or the absence of an owning Git checkout. Changed source/candidate bytes, failed prerequisites, missing markers, unexpected critical diagnostics or remaining descendants prevent a passing receipt. Failed output remains available, and historical evidence is never replaced.
+For example, select the EGO channel and the previously accepted 50.6/51.0 images explicitly:
+
+```bash
+/usr/bin/python3 tools/native-profile.py \
+  --source . --archive build/ego/unite-next@lucastsudaka.github.io.shell-extension.zip \
+  --channel ego \
+  --profile50 image --version50 50.6 \
+  --image50 sha256:bafda499d36b9cf981c5da6fc3a2b084eec26a301628878854a18a3e00818222 \
+  --profile51 image --version51 51.0 \
+  --image51 sha256:d67907a05a14eae2d8db0fbe0fd6c5c21cc7c9e0a40d738fbfa0a080e8faf82a \
+  --catalog50 /path/to/gnome-shell-50.6.mo \
+  --catalog51 /path/to/gnome-shell-51.0.mo \
+  --output build/ego-native-matrix
+```
+
+Use `--channel native` with its native ZIP and a distinct output directory for that channel's own acceptance. `--profile51 host` with `--profile50 image` is also supported when the host provides the selected 51 version. An image argument is required only for its image profile and rejected when unused by a host profile. These examples reuse recorded immutable environments; a new recipe build needs its own provisioning record and image ID before selection. An earlier environment or archive result never accepts a changed ZIP automatically.
+
+The output directory must be new. Add `--preflight-only` to validate the selected channel's complete source/archive correspondence, native resource versions, catalog preservation and fresh-process functional GLib translation without starting a compositor. `preflight_passed` does not establish desktop acceptance. A complete run executes full and conflict journeys once on each major, using one unchanged ZIP. `receipt.json` records the selected channel, versions and environments and links command outputs, native results, process cleanup, image identities, catalogs and the declared source-input manifest; it records Git HEAD/dirtiness or the absence of an owning Git checkout. Image launchers reuse the public native runner's descendant owner, recording external cleanup as well as cleanup inside the native session. Results and native logs for the two image profiles use separate directories. Changed source/candidate bytes, failed prerequisites, missing markers, unexpected critical diagnostics or remaining descendants prevent a passing receipt. Failed output remains available, and historical evidence is never replaced.
+
+SIGINT and SIGTERM cancel the remaining work after bounded cleanup of owned
+processes and containers. The terminal command report retains the first signal
+and fingerprints the complete output, including messages written during teardown;
+the runner restores its previous signal handlers before propagating cancellation.
 
 The source snapshot includes declared runtime, tool, test and gettext inputs,
 the reviewed artwork inventory and source logo, applicable license texts, and the public publisher workflow consumed by its guard
 regressions. It explicitly excludes build/Git/wrapper/specification/private
-evidence files. Python/tool inputs have finite public names; update that
+evidence files. Root `.git`, `build`, `specs`, `.agents` and `docs` directories are excluded even if selected by an input pattern; Python caches are excluded at every depth. Python/tool inputs have finite public names; update that
 declaration when adding a native Python consumer. It is a verification input
 closure, not the private export admission policy. Use the reviewed selected
 delivery source as `--source` when proving public-source independence; an
@@ -110,11 +173,10 @@ public independent repository. Existing tags/releases/assets are preserved;
 partial external failures remain visible for inspection. The GitHub publisher
 does not upload to EGO.
 
-For the EGO channel, pass its explicit ZIP path as the first argument to
-`tools/test-desktop.py` for both `full` and `conflict` on each major. Record its own
-digest and observed results. Source correspondence is available through
-`build.verify_source_archive(source, archive, channel="ego")` when importing the
-native build module. The aggregate
-`native-profile.py` retains its documented native-channel/version pins; a different
-channel or native version requires explicit matching-environment proof and must
-not be passed off as that pinned profile.
+For the EGO channel, select `--channel ego` and its exact ZIP in the aggregate
+profile above, or pass that explicit ZIP path to `tools/test-desktop.py` for both
+`full` and `conflict` on each major. Record its own digest and observed results.
+The aggregate verifies source correspondence with the selected channel; direct
+source checks remain available through
+`build.verify_source_archive(source, archive, channel="ego")`. Independent
+publisher validation and repository admission remain separate controls.

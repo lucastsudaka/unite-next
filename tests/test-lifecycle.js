@@ -475,7 +475,7 @@ test('Open windows retain no unmanaged/settings handlers after three cycles', ()
       'Managed window does not own the exact eligibility/title/state/size/lifetime signals')
     manager.destroy()
     assert(window.handlers.size === 0 && ctx.settings.extension.handlers.size === 0, 'Destroyed window owner retains signals')
-    assert(!window._uniteNextManaged && manager.windows.size === 0, 'Window remains managed')
+    assert(!manager.hasWindow(window) && manager.windows.size === 0, 'Window remains managed')
   }
 })
 

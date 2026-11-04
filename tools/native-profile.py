@@ -9,6 +9,7 @@ import ast
 import ctypes
 import gettext
 import hashlib
+import importlib.util
 import json
 import locale
 import os
@@ -28,6 +29,7 @@ VERSIONS = {'50': '50.5', '51': '51.0'}
 # Version-matched official catalogs already documented in the public guide.
 CATALOGS = {
     '50.5': '8d2ab765cdc31cb521ed82802357aac9de6b1c2787a08a9ecd1127a62dcca65f',
+    '50.6': '8d2ab765cdc31cb521ed82802357aac9de6b1c2787a08a9ecd1127a62dcca65f',
     '51.0': '4d1a773619f5c11c8dffa701e5e03ea2bb17d342d6d69744898a0112c97c1f3d',
 }
 # Declare the native tool/Python closure without depending on private owners.
@@ -76,8 +78,8 @@ def unchanged_archive(original, snapshot, expected):
 def source_manifest(source):
     paths = {path for pattern in INPUTS for path in source.glob(pattern)
              if path.is_file() or path.is_symlink()}
-    paths = {path for path in paths if path.relative_to(source).as_posix() not in EXCLUSIONS
-             and '__pycache__' not in path.parts and path.name != 'gschemas.compiled'}
+    paths = {path for path in paths if not excluded_source(path.relative_to(source))
+             and path.name != 'gschemas.compiled'}
     result = []
     for path in sorted(paths):
         if path.is_symlink() or not path.is_file():
@@ -89,6 +91,12 @@ def source_manifest(source):
     if missing:
         raise ValueError(f'Missing profile inputs: {sorted(missing)}')
     return result
+
+
+def excluded_source(relative):
+    """Root owner directories and caches at any depth, as declared above."""
+    return (relative.parts[0] + '/' in EXCLUSIONS or
+            '**/__pycache__/' in EXCLUSIONS and '__pycache__' in relative.parts)
 
 
 def git_state(source):
@@ -121,21 +129,25 @@ def snapshot_source(source, output):
 
 def immutable_image(reference, inspection):
     if not re.fullmatch(r'sha256:[0-9a-f]{64}', reference):
-        raise ValueError('image51 must be an explicit local sha256 image ID, never a tag')
+        raise ValueError('Image must be an explicit local sha256 image ID, never a tag')
     if len(inspection) != 1 or 'sha256:' + inspection[0].get('Id', '').removeprefix('sha256:') != reference:
         raise ValueError('Resolved image identity differs from the requested image ID')
     if inspection[0].get('Config', {}).get('User') != '65534:65534':
-        raise ValueError('The native51 profile requires image user 65534:65534')
+        raise ValueError('Native image profiles require image user 65534:65534')
     return {'id': reference, 'user': '65534:65534',
             'repo_digests': inspection[0].get('RepoDigests', [])}
 
 
-def sandbox_command(major, output, image, podman, command, *, overlay=None, cidfile=None):
+def sandbox_command(major, output, image, podman, command, *, overlay=None, cidfile=None,
+                    kind=None, results=None):
     """Use the already accepted native isolation policy without fallback flags."""
     output = output.resolve()
     if ':' in str(output) or '\n' in str(output):
         raise ValueError('Native profile output path cannot contain colon or newline mount delimiters')
-    if major == '50':
+    kind = kind or ('host' if major == '50' else 'image')
+    if kind not in ('host', 'image'):
+        raise ValueError(f'Unknown profile environment: {kind}')
+    if kind == 'host':
         argv = ['/usr/bin/bwrap', '--unshare-all', '--die-with-parent', '--new-session',
                 '--ro-bind', '/', '/', '--dev', '/dev', '--proc', '/proc',
                 '--tmpfs', '/tmp', '--tmpfs', '/run', '--setenv', 'TMPDIR', '/tmp',
@@ -149,13 +161,16 @@ def sandbox_command(major, output, image, podman, command, *, overlay=None, cidf
                            ('PYTHONDONTWRITEBYTECODE', '1'), ('HOME', '/tmp/native-profile-home')]:
             argv += ['--setenv', key, value]
         return argv + command
+    results = results or output / 'image-results'
+    if ':' in str(results) or '\n' in str(results):
+        raise ValueError('Native results path cannot contain colon or newline mount delimiters')
     argv = [podman, 'run', '--rm', '--pull', 'never', '--network', 'none', '--cap-drop', 'ALL',
             '--security-opt', 'label=type:container_engine_t', '--read-only',
             '--workdir', '/workspace',
             '--tmpfs', '/tmp:rw,nosuid,nodev,mode=1777', '--tmpfs', '/run:rw,nosuid,nodev,mode=755',
             '--volume', f'{output}/source:/workspace:ro',
             '--volume', f'{output}/candidate:/artifact:ro',
-            '--volume', f'{output}/image-results:/results:rw']
+            '--volume', f'{results}:/results:rw']
     if overlay:
         argv += ['--volume', f'{overlay}:/usr/share/locale/pt_BR/LC_MESSAGES:ro']
     if cidfile:
@@ -166,7 +181,7 @@ def sandbox_command(major, output, image, podman, command, *, overlay=None, cidf
     return argv + [image, *command]
 
 
-def execute(argv, log, *, timeout=30, podman=None, cidfile=None):
+def _execute(argv, log, *, timeout=30, podman=None, cidfile=None, pending=None):
     """Bound the outer launcher too; terminate only its own container on failure."""
     started = time.monotonic()
     timed_out = False
@@ -184,7 +199,6 @@ def execute(argv, log, *, timeout=30, podman=None, cidfile=None):
             stream.flush()
             record = {'argv': argv, 'exit': None, 'timeout': False, 'error': str(error),
                       'seconds': round(time.monotonic() - started, 3), 'output': log.name, 'sha256': sha256(log)}
-            write_json(log.with_suffix('.json'), record)
             return record, log.read_text()
 
         def stop(sig):
@@ -194,7 +208,16 @@ def execute(argv, log, *, timeout=30, podman=None, cidfile=None):
                 pass
         try:
             try:
-                process.wait(timeout=timeout)
+                deadline = time.monotonic() + timeout
+                while True:
+                    if pending:
+                        raise pending[0]
+                    try:
+                        process.wait(timeout=max(0, min(0.1, deadline - time.monotonic())))
+                        break
+                    except subprocess.TimeoutExpired:
+                        if time.monotonic() >= deadline:
+                            raise
             except subprocess.TimeoutExpired:
                 timed_out = True
                 stop(signal.SIGTERM)
@@ -219,7 +242,10 @@ def execute(argv, log, *, timeout=30, podman=None, cidfile=None):
             if process.poll() is None:
                 stop(signal.SIGKILL)
                 process.wait(timeout=5)
-            if podman and cidfile and cidfile.exists() and (cancellation or timed_out or process.returncode):
+            # A surviving private CID still belongs to this command, even when
+            # its launcher exited zero or cancellation arrives during outer
+            # descendant cleanup. Normal --rm completion removes the cidfile.
+            if podman and cidfile and cidfile.exists():
                 identity = cidfile.read_text().strip()
                 if not re.fullmatch('[0-9a-f]{64}', identity):
                     failure = 'Invalid owned container ID in profile cidfile'
@@ -238,14 +264,100 @@ def execute(argv, log, *, timeout=30, podman=None, cidfile=None):
         record['error'] = failure
     if cancellation:
         record['cancelled'] = True
-    write_json(log.with_suffix('.json'), record)
-    if cancellation:
         cancellation.command = record
         raise cancellation
     return record, output
 
 
-def validate_run(record, output, major, scenario, archive_hash):
+def execute(argv, log, *, timeout=30, podman=None, cidfile=None):
+    """Reuse the native runner's owner for image launcher descendants too."""
+    started = time.monotonic()
+    record = output = cancellation = None
+    pending = []
+
+    def interrupted(signum, frame):
+        # Raising from a handler can abandon a bounded cleanup at any Python
+        # instruction. Record the first signal; only the command wait converts
+        # it into control flow. Further signals cannot interrupt teardown.
+        if not pending:
+            pending.append(ProfileCancelled(f'Native profile interrupted by {signal.Signals(signum).name}'))
+
+    previous = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
+
+    def observe():
+        nonlocal record, output, cancellation
+        try:
+            record, output = _execute(argv, log, timeout=timeout, podman=podman,
+                                      cidfile=cidfile, pending=pending)
+        except ProfileCancelled as error:
+            cancellation = error
+            record, output = error.command, log.read_text()
+
+    def terminal_cancellation():
+        nonlocal cancellation
+        cancellation = cancellation or (pending[0] if pending else None)
+        if cancellation:
+            record['cancelled'] = True
+            reason = str(cancellation)
+            if reason not in record.get('error', ''):
+                record['error'] = '; '.join(filter(None, [record.get('error'), reason]))
+            cancellation.command = record
+
+    try:
+        for sig in previous:
+            signal.signal(sig, interrupted)
+        if podman and cidfile:
+            spec = importlib.util.spec_from_file_location('native_profile_desktop', ROOT / 'tools/test-desktop.py')
+            desktop = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(desktop)
+            cleanup = None
+            try:
+                with desktop.owned_descendants() as cleanup:
+                    observe()
+            except Exception as error:
+                if record is None:
+                    raise
+                record['error'] = '; '.join(filter(None, [record.get('error'), str(error)]))
+            record['outer_cleanup'] = cleanup
+        else:
+            observe()
+    finally:
+        # Restore both handlers as one protected boundary. A signal arriving
+        # between the two restores must neither escape teardown nor disappear.
+        mask = signal.pthread_sigmask(signal.SIG_BLOCK, previous)
+        try:
+            for sig, handler in previous.items():
+                signal.signal(sig, handler)
+
+            def retained_signals():
+                first = not pending
+                for sig in (signal.sigpending() & previous.keys()) - mask:
+                    signal.sigwait({sig})
+                    interrupted(sig, None)
+                return first and bool(pending)
+
+            retained_signals()
+            if record is not None:
+                # Adopted descendants can still write the retained log while
+                # the owner drains. Fingerprint only after every writer exits.
+                output = log.read_text()
+                record.update(sha256=sha256(log), seconds=round(time.monotonic() - started, 3))
+                terminal_cancellation()
+                write_json(log.with_suffix('.json'), record)
+                if retained_signals():
+                    terminal_cancellation()
+                    write_json(log.with_suffix('.json'), record)
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, mask)
+    if cancellation:
+        raise cancellation
+    return record, output
+
+
+def validate_run(record, output, major, scenario, archive_hash, *, version=None):
+    version = version or VERSIONS[major]
+    if version not in CATALOGS or not version.startswith(major + '.'):
+        raise ValueError(f'Unsupported native{major} version: {version}')
     summaries = [json.loads(line) for line in output.splitlines()
                  if line.startswith('{"source_archive_sha256":')]
     cleanups = [json.loads(line.removeprefix('UNITE_PROCESS_CLEANUP ')) for line in output.splitlines()
@@ -258,10 +370,13 @@ def validate_run(record, output, major, scenario, archive_hash):
     if (record.get('error') or type(record['exit']) is not int or record['exit'] != 0 or record['timeout'] is not False or
             type(result.get('exit')) is not int or result['exit'] != 0 or result.get('timeout') is not False or
             result.get('source_archive_sha256') != archive_hash or result.get('scenario') != scenario or
-            result.get('native') != f'GNOME Shell {VERSIONS[major]}' or
+            result.get('native') != f'GNOME Shell {version}' or
             result.get('unexpected_diagnostics') != [] or result.get('screenshot_error') is not None or
             cleanup.get('remaining') != [] or cleanup.get('scope') != 'linux_subreaper'):
         raise ValueError('Native result does not satisfy artifact/scenario/diagnostic/cleanup acceptance')
+    outer = record.get('outer_cleanup')
+    if outer is not None and (outer.get('scope') != 'linux_subreaper' or outer.get('remaining') != []):
+        raise ValueError('Native image launcher descendants were not fully reaped')
     return {'result': result, 'cleanup': cleanup}
 
 
@@ -284,6 +399,8 @@ def export_catalogs(original, destination):
 
 
 def prepare_catalog(original, destination, version, supplied=None):
+    if version not in CATALOGS:
+        raise ValueError(f'Unsupported native catalog version: {version}')
     shutil.copytree(original, destination)
     preserved = {path.name: sha256(path) for path in original.iterdir()}
     if supplied:
@@ -297,9 +414,12 @@ def prepare_catalog(original, destination, version, supplied=None):
     catalog = destination / 'gnome-shell.mo'
     if not catalog.is_file():
         raise ValueError(f'Matching native {version} Shell catalog is absent; supply its documented MO file')
+    selected_hash = sha256(catalog)
+    if selected_hash != CATALOGS[version]:
+        raise ValueError(f'Installed Shell catalog does not match the accepted {version} catalog hash')
     with catalog.open('rb') as stream:
         gettext.GNUTranslations(stream)
-    return {'version': version, 'sha256': sha256(catalog), 'explicit_override': bool(supplied),
+    return {'version': version, 'sha256': selected_hash, 'explicit_override': bool(supplied),
             'preserved': preserved}
 
 
@@ -369,7 +489,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, default=ROOT)
     parser.add_argument('--archive', type=Path, required=True)
-    parser.add_argument('--image51', required=True)
+    parser.add_argument('--channel', choices=('native', 'ego'), default='native')
+    for major in ('50', '51'):
+        parser.add_argument(f'--profile{major}', choices=('host', 'image'),
+                            default='host' if major == '50' else 'image')
+        parser.add_argument(f'--version{major}', default=VERSIONS[major],
+                            help=f'Exact admitted GNOME {major} version: ' +
+                            ', '.join(version for version in CATALOGS if version.startswith(major + '.')))
+        parser.add_argument(f'--image{major}', help='Immutable local sha256 image ID for image profiles')
     parser.add_argument('--catalog50', type=Path)
     parser.add_argument('--catalog51', type=Path)
     parser.add_argument('--output', type=Path, required=True)
@@ -380,9 +507,24 @@ def main(argv=None):
     def terminated(signum, frame):
         raise ProfileCancelled('Native profile interrupted by SIGTERM')
     previous_signal = signal.signal(signal.SIGTERM, terminated)
-    receipt = {'schema': 1, 'status': 'running', 'preflight_only': args.preflight_only,
+    receipt = {'schema': 1, 'status': 'running', 'preflight_only': args.preflight_only, 'channel': args.channel,
                'profiles': {}, 'runs': [], 'errors': []}
     try:
+        selection = {major: {'kind': getattr(args, f'profile{major}'),
+                             'version': getattr(args, f'version{major}'),
+                             'image': getattr(args, f'image{major}')}
+                     for major in ('50', '51')}
+        receipt['selection'] = selection
+        if all(item['kind'] == 'host' for item in selection.values()):
+            raise ValueError('One installed host cannot supply both GNOME 50 and 51 profiles')
+        for major, item in selection.items():
+            if item['version'] not in CATALOGS or not item['version'].startswith(major + '.'):
+                raise ValueError(f'Unsupported native{major} version: {item["version"]}; use the documented registry')
+            if item['kind'] == 'image':
+                if not item['image'] or not re.fullmatch(r'sha256:[0-9a-f]{64}', item['image']):
+                    raise ValueError(f'image{major} must be an explicit local sha256 image ID, never a tag')
+            elif item['image']:
+                raise ValueError(f'image{major} is unused by the selected host profile')
         source = args.source.resolve()
         receipt['source'] = {'git': git_state(source)}
         manifest = snapshot_source(source, output)
@@ -404,55 +546,75 @@ def main(argv=None):
             locale_file = candidate / 'locale/pt_BR/LC_MESSAGES/unite-next.mo'
             locale_file.parent.mkdir(mode=0o755, parents=True)
             locale_file.write_bytes(value.read('locale/pt_BR/LC_MESSAGES/unite-next.mo'))
+        podman = shutil.which('podman')
+        if not podman:
+            raise ValueError('Local Podman executable is required; nothing is installed automatically')
+        receipt['images'] = {}
+        for major, item in selection.items():
+            if item['kind'] != 'image':
+                continue
+            log = 'image-inspect.log' if major == '51' else 'image50-inspect.log'
+            record, text = execute([podman, 'image', 'inspect', item['image']], output / log)
+            if record['exit'] != 0 or record['timeout'] or record.get('error'):
+                raise ValueError(f'Local image{major} inspection failed; see its preserved output')
+            receipt['images'][major] = immutable_image(item['image'], json.loads(text))
+            if major == '51':
+                receipt['image51'] = receipt['images'][major]  # Existing receipt consumer.
+        results = {major: output / ('image-results' if major == '51' else 'image-results50')
+                   for major, item in selection.items() if item['kind'] == 'image'}
+        for directory in results.values():
+            directory.mkdir(mode=0o777)
+            directory.chmod(0o777)  # Only explicitly mounted disposable result directories are writable.
+
+        def invoke(major, name, command, *, overlay=None, timeout=30):
+            item = selection[major]
+            cidfile = output / f'{Path(name).stem}.cid' if item['kind'] == 'image' else None
+            command = sandbox_command(major, output, item['image'], podman, command,
+                                      kind=item['kind'], results=results.get(major),
+                                      overlay=overlay, cidfile=cidfile)
+            return execute(command, output / name, timeout=timeout,
+                           podman=podman if cidfile else None, cidfile=cidfile)
+
+        def visible(major, relative):
+            if selection[major]['kind'] == 'host':
+                return str(output / relative)
+            return '/workspace/' + relative.removeprefix('source/')
+
+        def artifact_path(major):
+            return str(archive) if selection[major]['kind'] == 'host' else '/artifact/candidate.zip'
+
         verifier = '''import json,sys
 from pathlib import Path
 sys.path.insert(0, str(Path.cwd()/'tools'))
 import build
-print('UNITE_PROFILE_PAYLOAD_PASS '+json.dumps(build.verify_source_archive(Path.cwd(), Path(sys.argv[1]))))'''
-        command = sandbox_command('50', output, args.image51, '',
-            ['/usr/bin/python3', '-B', '-c', verifier, str(archive)])
-        record, text = execute(command, output / 'source-archive.log', timeout=120)
+print('UNITE_PROFILE_PAYLOAD_PASS '+json.dumps(build.verify_source_archive(Path.cwd(), Path(sys.argv[1]), channel=sys.argv[2])))'''
+        record, text = invoke('50', 'source-archive.log',
+                             ['/usr/bin/python3', '-B', '-c', verifier, artifact_path('50'), args.channel], timeout=120)
         matches = [json.loads(line.removeprefix('UNITE_PROFILE_PAYLOAD_PASS ')) for line in text.splitlines()
                    if line.startswith('UNITE_PROFILE_PAYLOAD_PASS ')]
         if record['exit'] != 0 or record['timeout'] or record.get('error') or len(matches) != 1:
             raise ValueError('Source/native-catalog/archive correspondence failed; see preserved source-archive output')
         receipt['payload_verification'] = {'command': record, 'observed': matches[0]}
-        podman = shutil.which('podman')
-        if not podman:
-            raise ValueError('Local Podman executable is required; nothing is installed automatically')
-        if not re.fullmatch(r'sha256:[0-9a-f]{64}', args.image51):
-            raise ValueError('image51 must be an explicit local sha256 image ID, never a tag')
-        record, text = execute([podman, 'image', 'inspect', args.image51], output / 'image-inspect.log')
-        if record['exit'] != 0 or record['timeout'] or record.get('error'):
-            raise ValueError('Local image inspection failed; see its preserved output')
-        inspection = json.loads(text)
-        receipt['image51'] = immutable_image(args.image51, inspection)
-        image_results = output / 'image-results'
-        image_results.mkdir(mode=0o777)
-        image_results.chmod(0o777)  # Only this explicitly mounted disposable results directory is writable by image UID.
         for major in ('50', '51'):
-            profile = output / f'profile{major}' if major == '50' else image_results / 'profile51'
-            profile.mkdir(mode=0o777 if major == '51' else 0o700)
-            if major == '51':
+            image = selection[major]['kind'] == 'image'
+            profile = (results[major] if image else output) / f'profile{major}'
+            profile.mkdir(mode=0o777 if image else 0o700)
+            if image:
                 profile.chmod(0o777)
-            visible = str(profile) if major == '50' else '/results/profile51'
-            tool = str(output / 'source/tools/native-profile.py') if major == '50' else '/workspace/tools/native-profile.py'
-            cidfile = output / f'probe{major}.cid' if major == '51' else None
-            command = sandbox_command(major, output, args.image51, podman,
-                ['/usr/bin/python3', '-B', tool, '_probe', visible], cidfile=cidfile)
-            record, _ = execute(command, output / f'preflight{major}.log', podman=podman, cidfile=cidfile)
+            probe_path = f'/results/profile{major}' if image else str(profile)
+            tool = visible(major, 'source/tools/native-profile.py')
+            record, _ = invoke(major, f'preflight{major}.log',
+                               ['/usr/bin/python3', '-B', tool, '_probe', probe_path])
             if record['exit'] != 0 or record['timeout'] or record.get('error'):
                 raise ValueError(f'Native{major} inventory preflight failed; see its preserved output')
             native = json.loads((profile / 'native.json').read_text())
-            if native['shell'] != VERSIONS[major]:
-                raise ValueError(f'Profile native{major} requires {VERSIONS[major]}, observed {native["shell"]}')
+            if native['shell'] != selection[major]['version']:
+                raise ValueError(f'Profile native{major} requires {selection[major]["version"]}, observed {native["shell"]}')
             overlay = output / f'catalog{major}'
             catalog = prepare_catalog(profile / 'catalog-original', overlay, native['shell'], getattr(args, f'catalog{major}'))
-            cidfile = output / f'gettext{major}.cid' if major == '51' else None
-            command = sandbox_command(major, output, args.image51, podman,
-                ['/usr/bin/python3', '-B', tool, '_probe', visible, '--functional',
-                 str(candidate / 'locale') if major == '50' else '/artifact/locale'], overlay=overlay, cidfile=cidfile)
-            record, _ = execute(command, output / f'gettext{major}.log', podman=podman, cidfile=cidfile)
+            record, _ = invoke(major, f'gettext{major}.log',
+                               ['/usr/bin/python3', '-B', tool, '_probe', probe_path, '--functional',
+                                '/artifact/locale' if image else str(candidate / 'locale')], overlay=overlay)
             if record['exit'] != 0 or record['timeout'] or record.get('error'):
                 raise ValueError(f'Native{major} gettext preflight failed; see its preserved output')
             receipt['profiles'][major] = {'native': native, 'catalog': catalog,
@@ -460,25 +622,25 @@ print('UNITE_PROFILE_PAYLOAD_PASS '+json.dumps(build.verify_source_archive(Path.
         if not args.preflight_only:
             for major in ('50', '51'):
                 for scenario in ('full', 'conflict'):
-                    cidfile = output / f'{major}-{scenario}.cid' if major == '51' else None
                     log = output / f'gnome{major}-{scenario}.log'
-                    native_log = str(output / f'gnome{major}-{scenario}-native.log') if major == '50' else f'/results/{scenario}-native.log'
-                    tool = str(output / 'source/tools/test-desktop.py') if major == '50' else '/workspace/tools/test-desktop.py'
-                    artifact = str(archive) if major == '50' else '/artifact/candidate.zip'
-                    command = sandbox_command(major, output, args.image51, podman,
-                        ['/usr/bin/python3', '-B', tool, artifact, '--major', major, '--scenario', scenario, '--log', native_log],
-                        overlay=output / f'catalog{major}', cidfile=cidfile)
+                    image = selection[major]['kind'] == 'image'
+                    native_log = f'/results/{scenario}-native.log' if image else str(output / f'gnome{major}-{scenario}-native.log')
+                    tool = visible(major, 'source/tools/test-desktop.py')
                     run = {'major': major, 'scenario': scenario, 'status': 'running'}
                     receipt['runs'].append(run)
                     try:
-                        record, text = execute(command, log, timeout=150, podman=podman, cidfile=cidfile)
+                        record, text = invoke(major, log.name,
+                            ['/usr/bin/python3', '-B', tool, artifact_path(major), '--major', major,
+                             '--scenario', scenario, '--log', native_log],
+                            overlay=output / f'catalog{major}', timeout=150)
                     except ProfileCancelled as error:
                         run.update(status='cancelled', command=error.command, error=str(error))
                         raise
                     run.update(command=record, status='failed')
                     try:
-                        run.update(validate_run(record, text, major, scenario, receipt['archive_sha256']))
-                        native_path = output / f'gnome{major}-{scenario}-native.log' if major == '50' else image_results / f'{scenario}-native.log'
+                        run.update(validate_run(record, text, major, scenario, receipt['archive_sha256'],
+                                                version=selection[major]['version']))
+                        native_path = results[major] / f'{scenario}-native.log' if image else output / f'gnome{major}-{scenario}-native.log'
                         run['native_log'] = {'path': native_path.relative_to(output).as_posix(), 'sha256': sha256(native_path)}
                         unchanged_archive(args.archive, archive, receipt['archive_sha256'])
                         run['status'] = 'passed'

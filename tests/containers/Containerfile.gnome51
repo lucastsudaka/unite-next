@@ -1,9 +1,47 @@
-# Disposable GNOME 51 acceptance environment; no host desktop access is required.
+# Disposable GNOME 51.0 acceptance environment; no host desktop access is required.
 FROM registry.fedoraproject.org/fedora@sha256:1938d19715469f7876b8e83060b4f4619cdfb9bde873dbfef39d95719a641c89
-RUN dnf install --assumeyes --setopt=install_weak_deps=False \
-      gnome-shell mutter gjs gettext glib2 python3 python3-gobject-base libX11 dbus-daemon \
-      xorg-x11-server-Xwayland xprop mesa-dri-drivers gtk3 gtk4 libadwaita glibc-langpack-pt \
-    && dnf clean all
+# Bind the release repository as well as the base: updates must not select 51.1.
+# RPM signatures are checked against the keys inherited from the pinned Fedora base.
+RUN set -euo pipefail; \
+    native_repo='https://dl.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/'; \
+    native_metadata_sha='b773d5b26da503ff3512dd90059216904a980ae046e77ec3cb6e65aec62a5802'; \
+    curl --fail --location --proto '=https' --tlsv1.2 --connect-timeout 30 --max-time 120 \
+      "${native_repo}repodata/repomd.xml" --output /tmp/unite-native51-repomd.xml; \
+    printf '%s  %s\n' "$native_metadata_sha" /tmp/unite-native51-repomd.xml | sha256sum --check --strict; \
+    set -- \
+      gnome-shell-0:51.0-1.fc45.x86_64 mutter-0:51.0-1.fc45.x86_64 \
+      gjs-0:1.90.0-1.fc45.x86_64 gettext-0:1.0-4.fc45.x86_64 \
+      glib2-0:2.90.0-1.fc45.x86_64 python3-0:3.15.0-1.fc45.x86_64 \
+      python3-gobject-base-0:3.58.0-6.fc45.x86_64 libX11-0:1.8.13-3.fc45.x86_64 \
+      dbus-daemon-1:1.16.2-6.fc45.x86_64 xorg-x11-server-Xwayland-0:24.1.13-2.fc45.x86_64 \
+      xprop-0:1.2.8-6.fc45.x86_64 mesa-dri-drivers-0:26.2.3-1.fc45.x86_64 \
+      gtk3-0:3.24.52-6.fc45.x86_64 gtk4-0:4.24.1-1.fc45.x86_64 \
+      libadwaita-0:1.10.0-2.fc45.x86_64 glibc-langpack-pt-0:2.44-1.fc45.x86_64; \
+    dnf --disablerepo='*' --repofrompath="unite-native51,$native_repo" \
+      --enablerepo=unite-native51 --setopt=unite-native51.gpgcheck=True \
+      --setopt=cachedir=/var/cache/unite-native51 --setopt=system_cachedir=/var/cache/unite-native51 \
+      install --assumeyes --setopt=install_weak_deps=False "$@"; \
+    native_metadata_count=0; \
+    for native_metadata in /var/cache/unite-native51/unite-native51-*/repodata/repomd.xml; do \
+      printf '%s  %s\n' "$native_metadata_sha" "$native_metadata" | sha256sum --check --strict; \
+      native_metadata_count=$((native_metadata_count + 1)); \
+    done; \
+    test "$native_metadata_count" -eq 1; \
+    mkdir -p /usr/share/unite-native51; \
+    printf '%s\n' "$native_repo" > /usr/share/unite-native51/repository.txt; \
+    printf '%s\n' "$native_metadata_sha" > /usr/share/unite-native51/repomd.sha256; \
+    printf '%s\n' "$@" | LC_ALL=C sort > /usr/share/unite-native51/requested-rpms.txt; \
+    rpm -q --qf '%{NAME}-%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n' "$@" \
+      | LC_ALL=C sort > /usr/share/unite-native51/selected-rpms.txt; \
+    /usr/bin/python3 -c 'from pathlib import Path; import sys; a,b=sys.argv[1:]; sys.exit(0 if Path(a).read_bytes() == Path(b).read_bytes() else "Requested and installed RPM identities differ")' \
+      /usr/share/unite-native51/requested-rpms.txt /usr/share/unite-native51/selected-rpms.txt; \
+    rpm -qa --qf '%{NAME}-%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n' \
+      | LC_ALL=C sort > /usr/share/unite-native51/installed-rpms.txt; \
+    rm -rf /var/cache/unite-native51; \
+    rm /tmp/unite-native51-repomd.xml
+RUN set -eu; \
+    gnome-shell --version > /usr/share/unite-native51/gnome-shell-version.txt; \
+    /usr/bin/python3 -c 'from pathlib import Path; import sys; sys.exit(0 if Path("/usr/share/unite-native51/gnome-shell-version.txt").read_text().strip() == "GNOME Shell 51.0" else "Unexpected native GNOME version")'
 ENV LIBGL_ALWAYS_SOFTWARE=1
 WORKDIR /workspace
 # Nested glycin/bubblewrap sandboxes can map this unprivileged UID with no capabilities.

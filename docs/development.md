@@ -95,6 +95,12 @@ a fresh output directory to stage and verify the same candidate on both majors.
 The [public verification guide](public-verification.md) describes its preflight,
 isolation, input correspondence and receipts. The profile uses already installed
 tools and images.
+Its default remains the native channel with a 50.5 host and 51.0 image; explicit
+channel/version and host/image selections also cover the admitted 50.6 profile
+without a private driver. The finite registry and real source exclusions are
+covered by `tests/test_native_profile.py`. Image launcher cleanup reuses the
+native runner's existing descendant owner; source/channel validation and native
+result validation remain independent of publisher and repository admission.
 
 Packaging discovers the runtime closure. Delivery admission separately uses an
 explicit reviewed selection; these safeguards serve different boundaries. Release

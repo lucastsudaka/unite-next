@@ -62,6 +62,7 @@ export async function runX11(owner, settings) {
         await until(() => win.is_on_primary_monitor(), 'XWayland fixture on primary monitor')
         const original = property(data.xid)
         const originalFrame = win.get_frame_type()
+        assert(originalFrame === Meta.FrameType.NORMAL, 'XWayland fixture requires an original normal frame')
         print(`XWAYLAND_ORIGINAL ${JSON.stringify({ mode, original, move: win.allows_move(), resize: win.allows_resize(), decorated: win.decorated })}`)
         assert(mode === 'absent' ? original === null : original.type === '_MOTIF_WM_HINTS' &&
           original.data.join(',') === '3,4,1,17,42,4294967295', 'Fixture bytes differ from independent original expectation')
@@ -74,13 +75,12 @@ export async function runX11(owner, settings) {
         const controlsVisible = () => Main.panel.statusArea.uniteNextWindowControls.container.visible
         await until(() => label() === title && controlsVisible(), 'primary XWayland title and controls shown')
         settings.set_string('hide-window-titlebars', 'always')
-        await until(() => owner.windowManager.getWindow(win)?.decorations.owned?.applied, 'XWayland hints changed')
+        await until(() => win.get_frame_type() === Meta.FrameType.BORDER, 'native XWayland titlebar hidden')
         const hidden = property(data.xid)
         print(`XWAYLAND_HIDDEN ${JSON.stringify({ mode, hidden, move: win.allows_move(), resize: win.allows_resize(), decorated: win.decorated })}`)
         assert(hidden.type === '_MOTIF_WM_HINTS', 'Motif type was changed')
         assert(hidden.data.join(',') === (mode === 'absent' ? '2,0,2,0,0' : '3,4,2,17,42,4294967295'),
           'Unrelated Motif fields were changed')
-        await until(() => win.get_frame_type() === Meta.FrameType.BORDER, 'native XWayland titlebar hidden')
         if (mode === 'custom') {
           // Mutter deliberately derives resizing from WM_NORMAL_HINTS, overriding
           // the Motif resize bit; its minimize/maximize restrictions remain native.

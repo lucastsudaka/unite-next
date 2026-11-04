@@ -366,8 +366,8 @@ test('presentation failure during actual native window registration rolls back e
   assert(throws(() => state.manager.registerWindow(state.win), 'Native presentation failure disappeared') === original,
     'Original presentation error must reach the acquisition boundary')
   equal(calls, 1, 'Rollback must not re-notify the failing presentation owner')
-  equal([state.manager.hasWindow(state.win), state.win._uniteNextManaged, state.win.listeners.size],
-    [false, false, 0], 'Failed window registration releases map, marker and native window handlers')
+  equal([state.manager.hasWindow(state.win), state.win.listeners.size],
+    [false, 0], 'Failed window registration releases its map entry and native window handlers')
   equal(state.settings.listeners.size, settingHandlers, 'Failed registration releases its setting handlers')
 })
 
@@ -387,8 +387,8 @@ test('presentation and window rollback failures preserve original ordered errors
   assert(error.errors?.[0] === original && error.errors[1] === cleanup && error.cause === original,
     'Rollback must preserve both original errors in order')
   equal(calls, 1, 'Failed rollback must not re-notify its failing observer')
-  equal([state.manager.hasWindow(state.win), state.win._uniteNextManaged, state.win.listeners.size],
-    [false, false, 0], 'Independent native window ownership releases despite a rollback failure')
+  equal([state.manager.hasWindow(state.win), state.win.listeners.size],
+    [false, 0], 'Independent native window ownership releases despite a rollback failure')
   equal(state.settings.listeners.size, settingHandlers, 'Rollback failure does not retain setting handlers')
 })
 

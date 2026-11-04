@@ -67,7 +67,6 @@ const MetaWindow = GObject.registerClass(
     }
 
     activate(onUnmanaged) {
-      this.win._uniteNextManaged = true
       const win = this.win
       this.signals.connect(win, 'unmanaged', onUnmanaged)
       this.signals.connect(
@@ -243,15 +242,11 @@ const MetaWindow = GObject.registerClass(
     }
 
     destroy(reset = true) {
-      try {
-        runCleanup([
-          () => this.signals.disconnectAll(),
-          () => this.settings.disconnectAll(),
-          () => this.decorations.stop(reset)
-        ])
-      } finally {
-        this.win._uniteNextManaged = false
-      }
+      runCleanup([
+        () => this.signals.disconnectAll(),
+        () => this.settings.disconnectAll(),
+        () => this.decorations.stop(reset)
+      ])
     }
   }
 )

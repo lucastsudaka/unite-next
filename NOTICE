@@ -28,6 +28,13 @@ edits, and imported paths are escaped. Window effects follow maximization and
 primary-monitor changes; open preferences track theme availability. Regression
 and native desktop scenarios cover these transitions and resource cleanup.
 
+Modification notice — 2026-11-04
+Window ownership no longer maintains markers used only by tests. Native profile
+verification has explicit package channels, versions and host/image selection,
+effective source exclusions and bounded ownership cleanup. The GNOME 51.0 test
+image recipe binds its release repository and package versions. Existing artwork,
+settings, contributor credits and published releases are preserved.
+
 The project retains the GNU General Public License version 3 in LICENSE.
 Existing source copyright notices and translator credits remain applicable.
 Translation authors and language teams are credited in translations/*.po in the

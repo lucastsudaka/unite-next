@@ -121,8 +121,7 @@ export class ServerDecorations {
       // A failed response cannot prove that the child did not mutate X11.
       this.owned.attempted = true
       this._begin({ operation: 'replace', xid: this.xid, expected: original, value }, result => {
-        if (result.changed) this.owned.applied = true
-        else this.owned = null
+        if (!result.changed) this.owned = null
         return !this.hidden
       })
     }
