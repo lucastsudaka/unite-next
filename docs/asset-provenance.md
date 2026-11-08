@@ -108,18 +108,28 @@ names are attribution rather than fork settings namespaces.
 
 ## Native fork captures
 
-The current root PNGs were captured on 2026-11-03 in an isolated GNOME Shell
-50.6 session after the complete native journey passed with the cleared artwork.
-The desktop shows the native performance-test client and the new default panel
-controls; the preferences capture shows the actual installed fork. They contain
-no active-user desktop data or mockup.
+The current root PNGs were captured on 2026-11-08 in an isolated GNOME Shell
+51.0 session. The desktop shows the official GNOME Settings application on its
+Apps page (`gnome-control-center applications`), with Unite Next's window title
+and controls in the top panel. The preferences capture shows the actual installed
+fork. Native `Shell.Screenshot` output is published unchanged.
+
+The session used disposable settings, private buses and the existing GNOME 51.0
+image. Its window-button layout matched GTK's right-hand layout; the fork's
+titlebar policy was `maximized`, primary-monitor restriction was off, and panel
+titles and controls were enabled. Capture automation in a disposable source copy
+opened the real Settings application instead of the performance-test client,
+waited for its painted frame and closed it after capture. The capture journey
+completed with no unexpected diagnostics or remaining descendants. This records
+image provenance; the unchanged installation ZIP retains its separate canonical
+GNOME 50/51 acceptance at source revision `fc7c941046bf0db8bd1152c32ccafd78d5cf516f`.
 
 The capture input installation ZIP SHA-256 is
-`4d942ba31635fdca774d5afab199cc38a50caa14e8176587e3a0bb254339a9a1`. This identifies that local capture input,
-not the ZIP-container digest of a later CI build. The exact CI delivery ZIP
-receives its own source and native acceptance.
+`4499d9ca1def6c8caeb1a127abefdeb71f0f2b89ef878700bc7113d26c22609a`,
+the accepted EGO artifact from CI run `41775272457`. Only presentation PNGs and
+their documentation changed; the submitted runtime package remains identical.
 
 | Capture | Dimensions | SHA-256 |
 | --- | --- | --- |
-| `screenshot.png` | 2560 × 1440 | `5ef10ccc343de2707e4e84062856ab4cff396c1d84fa139a6ed550afda6a1dc0` |
-| `settings.png` | 670 × 710 | `05487dccf640d8e35e66cae6776c1d88cb42d10834368e8c87b9f7ab34b40f03` |
+| `screenshot.png` | 2560 × 1440 | `c73ec11cfb060c1d69f68ae9c8309a2f9565daacffba63e39e5e96f1020d235b` |
+| `settings.png` | 670 × 710 | `ed5de05ab7ca5b7408ce3073bb4556653dc8722c7d77a5935ae6daf341c4b765` |

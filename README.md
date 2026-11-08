@@ -4,9 +4,9 @@ Unite Next is an independent fork of [Unite Shell](https://github.com/hardpixel/
 
 The code, releases and issue tracker are public. This fork is independently maintained and is not endorsed by the upstream project. EGO submission preparation does not imply approval by extensions.gnome.org.
 
-![Unite Next in an isolated GNOME 50 session](screenshot.png)
+![Unite Next with GNOME Settings open to Apps in an isolated GNOME 51 session](screenshot.png)
 
-Native acceptance session with the GNOME performance-test client.
+GNOME Settings on the Apps page, with Unite Next's window title and controls in the top panel.
 
 ![Installed Unite Next preferences](settings.png)
 
