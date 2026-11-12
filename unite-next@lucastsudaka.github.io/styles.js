@@ -41,7 +41,7 @@ export class Styles {
     this.setStyle(name, ShellStyle, path)
   }
 
-  addScopedShellStyle(name, path, scope, presentation = { apply() {}, rollback() {} }, prepared = null) {
+  addScopedShellStyle(name, path, scope, prepared, presentation = { apply() {}, rollback() {} }) {
     this.cancelScopedShellStyle(name)
     const previous = this.getStyle(name)
     if (previous) {
@@ -49,13 +49,20 @@ export class Styles {
       return
     }
     this.scopedStore ??= new ScopedStylesheetStore()
-    const style = new ScopedShellStyle(path, scope, this.scopedStore)
+    const store = this.scopedStore
+    const retained = new Set(store.files.keys())
+    const style = new ScopedShellStyle(path, scope, store)
     this.styles.set(name, style)
     try {
       style.load(prepared)
       presentation.apply()
     } catch (error) {
-      runCleanup([() => { throw error }, () => presentation.rollback(), () => this.deleteStyle(name)])
+      runCleanup([
+        () => { throw error },
+        () => presentation.rollback(),
+        () => this.deleteStyle(name),
+        () => store.rollback(retained)
+      ])
     }
   }
 

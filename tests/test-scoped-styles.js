@@ -5,6 +5,7 @@ import St from 'gi://St'
 import { scopeStylesheet, ScopedStylesheet, ScopedStylesheetStore, StylesheetPreparation } from '../unite-next@lucastsudaka.github.io/scoped-styles.js'
 import { assert, throws } from './assert.js'
 import { Styles } from '../unite-next@lucastsudaka.github.io/styles.js'
+import { ScopedShellStyle } from '../unite-next@lucastsudaka.github.io/shell-styles.js'
 
 assert(GLib.getenv('UNITE_PRIVATE_TEST') === '1', 'Scoped CSS tests require private state')
 const scope = 'unite-next-window-controls'
@@ -58,7 +59,7 @@ test('real import closure is privately scoped without modifying sources or their
   write(style, root)
   const owner = new ScopedStylesheet(style.get_path(), scope)
   const theme = new St.Theme()
-  owner.load(theme)
+  owner.load(theme, prepare(Gio.File.new_for_path(owner.path)))
   const directoryPath = owner.store.directory.get_path()
   const files = [...owner.store.files.values()]
   try {
@@ -83,7 +84,7 @@ test('import suffixes preserve native media lists and reject recovered malformed
     write(root, `@import "nested/imported.css" ${suffix}; .close { width: 5px; }`)
     const owner = new ScopedStylesheet(root.get_path(), scope)
     const theme = new St.Theme()
-    throws(() => owner.load(theme), `Malformed media suffix was accepted: ${suffix}`)
+    throws(() => owner.load(theme, prepare(Gio.File.new_for_path(owner.path))), `Malformed media suffix was accepted: ${suffix}`)
     assert(theme.get_custom_stylesheets().length === 0 && owner.store.directory === null,
       'Malformed import retained staging or native ownership')
   }
@@ -91,7 +92,7 @@ test('import suffixes preserve native media lists and reject recovered malformed
   const owner = new ScopedStylesheet(root.get_path(), scope)
   const theme = new St.Theme()
   try {
-    owner.load(theme)
+    owner.load(theme, prepare(Gio.File.new_for_path(owner.path)))
     assert(read(owner.file).includes('screen /* comma */ , print;'), 'Valid native media list changed')
   } finally { owner.unload(theme) }
 })
@@ -99,11 +100,11 @@ test('unchanged selections reuse generated import paths across a feature activat
   const theme = new St.Theme()
   const store = new ScopedStylesheetStore()
   const first = new ScopedStylesheet(style.get_path(), scope, store)
-  first.load(theme)
+  first.load(theme, prepare(Gio.File.new_for_path(first.path)))
   const paths = [...store.files.values()].map(file => file.get_path())
   first.unload(theme)
   const second = new ScopedStylesheet(style.get_path(), scope, store)
-  second.load(theme)
+  second.load(theme, prepare(Gio.File.new_for_path(second.path)))
   try {
     assert(JSON.stringify([...store.files.values()].map(file => file.get_path())) === JSON.stringify(paths),
       'Unchanged import closure created new native cache paths')
@@ -122,7 +123,7 @@ test('source aliases retain their own relative asset bases and distinct sheet id
   write(root, '@import "one/alias.css"; @import "two/alias.css";')
   const store = new ScopedStylesheetStore()
   try {
-    store.compile(root.get_path(), scope)
+    store.compile(root.get_path(), scope, prepare(root))
     const contents = [...store.files.values()].map(read).join('\n')
     assert(store.files.size === 3, 'Distinct source aliases were merged')
     for (const name of ['one', 'two'])
@@ -134,12 +135,12 @@ test('changed content at the same source receives a fresh native cache identity'
   const store = new ScopedStylesheetStore()
   try {
     write(changing, '.close { width: 17px; }')
-    const first = store.compile(changing.get_path(), scope)
+    const first = store.compile(changing.get_path(), scope, prepare(changing))
     write(changing, '.close { width: 31px; }')
-    const second = store.compile(changing.get_path(), scope)
+    const second = store.compile(changing.get_path(), scope, prepare(changing))
     assert(!first.equal(second), 'Changed content reused stale native CSS identity')
     assert(read(first).includes('width: 17px') && read(second).includes('width: 31px'), 'Staged snapshots were overwritten')
-    assert(store.compile(changing.get_path(), scope).equal(second), 'Unchanged content did not reuse its native cache identity')
+    assert(store.compile(changing.get_path(), scope, prepare(changing)).equal(second), 'Unchanged content did not reuse its native cache identity')
   } finally { store.clear() }
 })
 test('finite nested hardlink imports with distinct real parents remain valid', () => {
@@ -156,7 +157,7 @@ test('finite nested hardlink imports with distinct real parents remain valid', (
   write(final.get_child('finite.css'), '.close { height: 11px; }')
   const store = new ScopedStylesheetStore()
   try {
-    store.compile(first.get_path(), scope)
+    store.compile(first.get_path(), scope, prepare(first))
     assert(store.files.size === 3, 'Finite nested hardlink graph was rejected or conflated')
   } finally { store.clear() }
 })
@@ -177,7 +178,7 @@ test('finite alias imports preserve lexical parent resolution at different path 
   write(final.get_child('theme.css'), '.close { height: 7px; }')
   const store = new ScopedStylesheetStore()
   try {
-    store.compile(aliases.get_child('deep').get_child('theme.css').get_path(), scope)
+    store.compile(aliases.get_child('deep').get_child('theme.css').get_path(), scope, prepare(aliases.get_child('deep').get_child('theme.css')))
     assert(store.files.size === 3, 'Physical alias identity replaced native lexical base semantics')
   } finally { store.clear() }
 })
@@ -186,7 +187,7 @@ test('expanding directory-symlink imports fail visibly at the native filesystem 
   write(cycle, '@import "again/directory-cycle.css";')
   base.get_child('again').make_symbolic_link(base.get_path(), null)
   const owner = new ScopedStylesheet(cycle.get_path(), scope)
-  const error = throws(() => owner.load(new St.Theme()), 'Directory alias cycle was accepted')
+  const error = throws(() => owner.load(new St.Theme(), prepare(Gio.File.new_for_path(owner.path))), 'Directory alias cycle was accepted')
   assert(error.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.TOO_MANY_LINKS), 'Directory alias loop lost its native ELOOP diagnostic')
   assert(owner.store.directory === null && owner.store.files.size === 0, 'Alias cycle retained a partial stage')
 })
@@ -194,7 +195,7 @@ test('native global theme copying is unloaded from both original and current own
   const original = new St.Theme()
   const replacement = new St.Theme()
   const owner = new ScopedStylesheet(style.get_path(), scope)
-  owner.load(original)
+  owner.load(original, prepare(Gio.File.new_for_path(owner.path)))
   for (const file of original.get_custom_stylesheets()) replacement.load_stylesheet(file)
   const directory = owner.store.directory
   owner.unload(replacement)
@@ -210,7 +211,7 @@ test('cyclic, symlink-cyclic and unreadable imports fail visibly and remove stag
   for (const content of ['@import "cycle.css";', '@import "cycle-alias.css";', '@import "missing.css";']) {
     write(cycle, content)
     const owner = new ScopedStylesheet(cycle.get_path(), scope)
-    throws(() => owner.load(new St.Theme()), 'Import acquisition failure disappeared')
+    throws(() => owner.load(new St.Theme(), prepare(Gio.File.new_for_path(owner.path))), 'Import acquisition failure disappeared')
     assert(owner.store.directory === null && owner.store.files.size === 0, 'Failed import retained private stage')
   }
 })
@@ -218,20 +219,20 @@ test('failed final loading releases staged files and partially acquired styleshe
   const owner = new ScopedStylesheet(style.get_path(), scope)
   let unloaded = 0
   const failing = { load_stylesheet() { throw new Error('Injected native load failure') }, unload_stylesheet() { unloaded++ } }
-  const error = throws(() => owner.load(failing), 'Native loading failure disappeared')
+  const error = throws(() => owner.load(failing, prepare(Gio.File.new_for_path(owner.path))), 'Native loading failure disappeared')
   assert(error.message.includes('Injected native load failure'), 'Original native loading error disappeared')
   assert(unloaded === 1 && owner.file === null && owner.store.directory === null && owner.store.files.size === 0,
     'Failed loading retained root or private files')
 })
 test('failed loading rolls back only its new files in a shared activation store', () => {
   const store = new ScopedStylesheetStore()
-  store.compile(style.get_path(), scope)
+  store.compile(style.get_path(), scope, prepare(style))
   const retained = [...store.files.values()].map(file => file.get_path())
   const changed = base.get_child('rejected.css')
   write(changed, '.close { width: 37px; }')
   const owner = new ScopedStylesheet(changed.get_path(), scope, store)
   try {
-    throws(() => owner.load({load_stylesheet() { throw new Error('Rejected update') }, unload_stylesheet() {}}),
+    throws(() => owner.load({load_stylesheet() { throw new Error('Rejected update') }, unload_stylesheet() {}}, prepare(changed)),
       'Rejected update falsely succeeded')
     assert(JSON.stringify([...store.files.values()].map(file => file.get_path())) === JSON.stringify(retained),
       'Failed update retained new files or discarded existing activation ownership')
@@ -243,17 +244,21 @@ test('malformed roots unwind imported files already staged before the failure', 
   write(malformed, '@import "nested/imported.css"; .close { color red; }')
   const owner = new ScopedStylesheet(malformed.get_path(), scope)
   const theme = new St.Theme()
-  throws(() => owner.load(theme), 'Malformed root was exposed after staging its import')
+  // Compilation also rejects an invalid snapshot instead of trusting its caller.
+  const prepared = prepare(base.get_child('nested/imported.css'))
+  prepared.set(malformed.get_uri(), malformed.load_contents(null)[1])
+  throws(() => owner.load(theme, prepared), 'Malformed root was exposed after staging its import')
   assert(theme.get_custom_stylesheets().length === 0 && owner.store.directory === null && owner.store.files.size === 0,
     'Malformed root retained loaded ownership or partially staged imports')
 })
 test('partial native staging writes close and remove the owned file without publishing a root', () => {
+  const prepared = prepare(style)
   const nativeNewForPath = Gio.File.new_for_path
   const wrap = file => ({
     get_path: () => file.get_path(), get_uri: () => file.get_uri(),
     get_parent: () => wrap(file.get_parent()), get_child: name => wrap(file.get_child(name)),
     resolve_relative_path: path => wrap(file.resolve_relative_path(path)),
-    query_info: (...args) => file.query_info(...args), load_contents: (...args) => file.load_contents(...args),
+    query_info: (...args) => file.query_info(...args),
     delete: (...args) => file.delete(...args),
     create(...args) {
       const stream = file.create(...args)
@@ -264,7 +269,7 @@ test('partial native staging writes close and remove the owned file without publ
   try {
     Gio.File.new_for_path = path => wrap(nativeNewForPath(path))
     const owner = new ScopedStylesheet(style.get_path(), scope)
-    const error = throws(() => owner.load(new St.Theme()), 'Partial staging falsely succeeded')
+    const error = throws(() => owner.load(new St.Theme(), prepared), 'Partial staging falsely succeeded')
     assert(error.message.includes('Injected staging failure'), 'Staging error disappeared')
     assert(owner.store.directory === null && owner.store.files.size === 0, 'Partial write retained generated files')
   } finally {
@@ -286,7 +291,7 @@ test('every shipped theme variant scopes and passes the installed native CSS par
       for (const variant of ['Dark', 'Light']) {
         const original = directory.resolve_relative_path(keys.get_string(variant, 'Style'))
         const bytes = read(original)
-        store.compile(original.get_path(), scope)
+        store.compile(original.get_path(), scope, prepare(original))
         assert(read(original) === bytes, 'Shipped theme source changed')
         variants++
       }
@@ -326,14 +331,17 @@ test('asynchronous import preparation is read-only and replacement uses its snap
   write(selected, '@import "async-import.css"; .close { width: 23px; }')
   const owner = new ScopedStylesheet(initial.get_path(), scope)
   const theme = new St.Theme()
-  owner.load(theme)
-  const previous = owner.file
-  const paths = [...owner.store.files.keys()]
   const load = Gio.File.prototype.load_contents
   let presentation = 'old'
   let records
+  let previous
   try {
     Gio.File.prototype.load_contents = () => { throw new Error('Prepared selection used a synchronous input read') }
+    const first = prepare(initial)
+    assert(owner.store.directory === null, 'First preparation created staging')
+    owner.load(theme, first)
+    previous = owner.file
+    const paths = [...owner.store.files.keys()]
     records = prepare(selected)
     assert(records.size === 2 && JSON.stringify([...owner.store.files.keys()]) === JSON.stringify(paths), 'Read-only preparation changed staging')
     write(selected, '.invalid { color broken; }')
@@ -354,6 +362,53 @@ test('asynchronous import preparation is read-only and replacement uses its snap
   } finally { owner.unload(theme) }
 })
 
+test('compilation requires a prepared snapshot and rejects an incomplete import closure without retained staging', () => {
+  const store = new ScopedStylesheetStore()
+  const error = throws(() => store.compile(style.get_path(), scope), 'Missing prepared snapshot was accepted')
+  assert(error.message.includes('snapshot is required') && store.directory === null && store.files.size === 0,
+    'Missing snapshot read inputs or allocated a stage')
+  const incomplete = new Map([[style.get_uri(), style.load_contents(null)[1]]])
+  const missing = throws(() => store.compile(style.get_path(), scope, incomplete), 'Incomplete import snapshot was accepted')
+  assert(missing.message.includes('Missing prepared') && store.directory === null && store.files.size === 0,
+    'Incomplete snapshot retained private files')
+})
+
+test('first Styles load or presentation failure removes candidate CSS and staging before a successful retry', () => {
+  const theme = new St.Theme()
+  const load = theme.load_stylesheet.bind(theme)
+  Object.defineProperty(ScopedShellStyle.prototype, 'theme', { configurable: true, get: () => theme })
+  try {
+    for (const boundary of ['load', 'presentation', 'rollback']) {
+      const owner = new Styles()
+      const prepared = prepare(style)
+      let directory
+      const failure = new Error(`First ${boundary} failure`)
+      theme.load_stylesheet = file => {
+        directory = owner.scopedStore.directory
+        const result = load(file)
+        if (boundary === 'load') throw failure
+        return result
+      }
+      try {
+        const error = throws(() => owner.addScopedShellStyle('controls', style.get_path(), scope, prepared, {
+          apply() { throw failure },
+          rollback() { if (boundary === 'rollback') throw new Error('First rollback failure') }
+        }), 'First acquisition failure disappeared')
+        assert(error.message.includes(failure.message) && (boundary !== 'rollback' || error.message.includes('First rollback failure')),
+          'Original or cleanup failure disappeared')
+        assert(!owner.hasStyle('controls') && theme.get_custom_stylesheets().length === 0 &&
+          owner.scopedStore.files.size === 0 && owner.scopedStore.directory === null && !directory.query_exists(null),
+          'Local first failure retained native ownership or newly staged files')
+        theme.load_stylesheet = load
+        owner.addScopedShellStyle('controls', style.get_path(), scope, prepared)
+        assert(owner.hasStyle('controls') && theme.get_custom_stylesheets().length === 1,
+          'Same Styles owner could not recover after its first failure')
+      } finally { theme.load_stylesheet = load; owner.removeAll() }
+      assert(theme.get_custom_stylesheets().length === 0, 'Retry ownership survived cleanup')
+    }
+  } finally { delete ScopedShellStyle.prototype.theme }
+})
+
 test('failed native or presentation transitions restore the previous root and keep prior cache ownership', () => {
   const initial = base.get_child('rollback-initial.css')
   const selected = base.get_child('rollback-next.css')
@@ -361,7 +416,7 @@ test('failed native or presentation transitions restore the previous root and ke
   write(selected, '.close { width: 29px; }')
   const owner = new ScopedStylesheet(initial.get_path(), scope)
   const theme = new St.Theme()
-  owner.load(theme)
+  owner.load(theme, prepare(Gio.File.new_for_path(owner.path)))
   const previous = owner.file
   const retained = [...owner.store.files.keys()]
   const prepared = prepare(selected)
@@ -421,7 +476,7 @@ test('native theme copies replace cleanly and reentrant disposal unloads an in-p
   const owner = new ScopedStylesheet(initial.get_path(), scope)
   const original = new St.Theme()
   const current = new St.Theme()
-  owner.load(original)
+  owner.load(original, prepare(Gio.File.new_for_path(owner.path)))
   current.load_stylesheet(owner.file)
   owner.replace(current, selected.get_path(), scope, prepare(selected), { apply() {}, rollback() {} })
   assert(original.get_custom_stylesheets().length === 0 && current.get_custom_stylesheets().length === 1,
@@ -473,7 +528,7 @@ test('a real native theme copy during replacement is rolled back and all copied 
     let current = original
     let copied = null
     let presentation = 'old'
-    owner.load(original)
+    owner.load(original, prepare(Gio.File.new_for_path(owner.path)))
     const previous = owner.file
     const signal = original.connect('custom-stylesheets-changed', () => {
       if (copied || original.get_custom_stylesheets().length !== 2) return

@@ -168,6 +168,73 @@ export async function runCorrections(owner, settings, win) {
     const directory = Gio.File.new_for_path(`${GLib.get_user_data_dir()}/unite-next/themes/${id}`)
     const feature = owner.panelManager.windowButtons
     copyTree(owner.dir.get_child('themes/default'), directory)
+    const firstSheets = ['dark', 'light'].map(name => directory.get_child(`${name}/stylesheet.css`))
+    const firstBytes = firstSheets.map(file => file.load_contents(null)[1])
+    const { WindowControlsThemes } = await import(owner.dir.get_child('theme.js').get_uri())
+    const discover = WindowControlsThemes.prototype.update
+    const readAsync = Gio.File.prototype.load_contents_async
+    const reportFailure = feature._reportThemeFailure
+    const firstFailures = []
+    let restoreButtons = null
+    feature._reportThemeFailure = (error, request) => {
+      assert(request === feature.themeRequest, 'Initial error reached the wrong native request')
+      firstFailures.push(error)
+    }
+    try {
+      for (const boundary of ['discovery', 'startup', 'import', 'presentation']) {
+        settings.set_string('show-window-buttons', 'never')
+        settings.set_string('window-buttons-theme', id)
+        const before = firstFailures.length
+        const failure = new Error(`Injected first-theme ${boundary} failure`)
+        if (boundary === 'discovery') WindowControlsThemes.prototype.update = () => { throw failure }
+        if (boundary === 'startup') Gio.File.prototype.load_contents_async = function (...args) {
+          if (this.has_prefix(directory)) throw failure
+          return readAsync.apply(this, args)
+        }
+        if (boundary === 'import') for (const file of firstSheets)
+          file.replace_contents('@import "missing-initial-import.css";', null, false, Gio.FileCreateFlags.PRIVATE, null)
+        settings.set_string('show-window-buttons', 'always')
+        const initialControls = controls()
+        const addButtons = initialControls.addButtons
+        if (boundary === 'presentation') {
+          restoreButtons = () => { initialControls.addButtons = addButtons }
+          initialControls.addButtons = function (buttons) {
+            addButtons.call(this, buttons)
+            if (buttons.length) throw failure
+          }
+        }
+        assert(!feature.themeReady && !initialControls.container.visible && initialControls._buttons.size === 0,
+          'First acquisition exposed controls before its asynchronous theme')
+        await until(() => firstFailures.length === before + 1 && feature.styles.preparations.size === 0,
+          `first-theme ${boundary} failure`)
+        assert((boundary === 'import' || firstFailures.at(-1) === failure) &&
+          !feature.themeReady && !initialControls.container.visible && initialControls._buttons.size === 0 &&
+          !initialControls.has_style_class_name(id) && !feature.styles.hasStyle('windowButtons') &&
+          (!feature.styles.scopedStore || (feature.styles.scopedStore.directory === null && feature.styles.scopedStore.files.size === 0)),
+        `First ${boundary} failure retained partial presentation or staging`)
+        assert(settings.get_string('window-buttons-theme') === id && owner.context && owner.windowManager.windows.size > 0,
+          'First-theme error rewrote selection or disabled unrelated features')
+        Gio.File.prototype.load_contents_async = readAsync
+        WindowControlsThemes.prototype.update = discover
+        initialControls.addButtons = addButtons
+        restoreButtons = null
+        for (let index = 0; index < firstSheets.length; index++)
+          firstSheets[index].replace_contents(firstBytes[index], null, false, Gio.FileCreateFlags.PRIVATE, null)
+        settings.set_string('window-buttons-theme', 'default')
+        await until(() => feature.themeReady && feature.theme.uuid === 'default' && feature.styles.preparations.size === 0,
+          `first-theme ${boundary} recovery`)
+        assert(controls() === initialControls && controls()._buttons.size === 3 && controls().container.visible,
+          'Valid theme did not recover the same native control activation')
+        record(`first-theme ${boundary} failure stays local, removes partial state and recovers by valid selection`)
+      }
+    } finally {
+      restoreButtons?.()
+      Gio.File.prototype.load_contents_async = readAsync
+      WindowControlsThemes.prototype.update = discover
+      feature._reportThemeFailure = reportFailure
+      for (let index = 0; index < firstSheets.length; index++)
+        firstSheets[index].replace_contents(firstBytes[index], null, false, Gio.FileCreateFlags.PRIVATE, null)
+    }
     for (const variant of ['dark', 'light']) {
       const files = directory.get_child(variant)
       const source = files.get_child('close.svg')

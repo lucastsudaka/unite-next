@@ -38,7 +38,7 @@ export class ScopedShellStyle extends ShellStyle {
     this.scoped = new ScopedStylesheet(this.file.get_path(), scope, store)
   }
 
-  load(prepared = null) {
+  load(prepared) {
     this.scoped.load(this.theme, prepared)
   }
 

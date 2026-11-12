@@ -15,6 +15,10 @@ actors, settings, signals, timers and stylesheet ownership are acquired during
 enable, never at import time. Preferences import GTK/Adwaita in their own process;
 the Shell closure uses Shell libraries. `tools/build.py check` validates the
 transitive import boundaries. Both native lifecycle methods remain synchronous.
+This is an architectural choice for enable: GNOME Shell 50/51 await it, but their
+native activation bookkeeping completes only afterward. Disable must complete
+cleanup synchronously. Theme preparation is owned by the controls feature so it
+does not extend native activation or prevent cancellation on feature removal.
 Disable attempts every independent cleanup, releases references and reports
 failures rather than treating failed restoration as success.
 
@@ -35,14 +39,26 @@ Removing a GTK owner, including a preference change that removes global styling,
 also drains and restores synchronously before releasing ownership. Rollback and
 window removal retain their deterministic draining boundary.
 
-The first control-theme acquisition remains synchronous for activation rollback.
-Subsequent theme/brightness changes prepare the complete import closure through
-read-only asynchronous GIO requests, reusing the token-aware CSS parser. The prior
-valid CSS, theme class, variant and icons remain together until the latest request
-can be applied synchronously. Superseded/disposed reads cannot apply or stage a
-theme; current failures stay visible and preserve the previous presentation.
+Every control-theme acquisition, including first activation and feature
+reactivation, prepares the complete import closure through read-only asynchronous
+GIO requests, reusing the token-aware CSS parser. Compilation requires that
+snapshot and has no synchronous source-read fallback. Controls stay hidden and
+empty until the first valid presentation. A first-theme failure is logged, removes
+candidate CSS/staging and leaves owned observers available for retry by selecting
+a valid theme or reactivating the feature. Other extension features continue.
+The prior valid CSS, theme class, variant and icons remain together until the
+latest request can be applied synchronously. Superseded/disposed reads cannot
+apply or stage a theme; current failures preserve any previous valid presentation.
 Native `St.Theme` loading and private generated CSS remain synchronous. This uses
 GIO directly without a new helper process or binary dependency.
+
+`EGO-X-004` can still identify the synchronous private-output fallback in
+`ProcessJob.finish()`. It is used when exact GTK/X11 transaction completion cannot
+wait for another main-loop turn, including feature removal and native disable.
+GTK's post-exchange comparison needs the actual displaced bytes to decide whether
+to roll back; command status or cached pre-exchange content cannot substitute for
+them. Removing this boundary would require redesigning the complete transaction
+executor and its restoration protocol, rather than replacing one read API.
 
 ## XWayland property helper
 

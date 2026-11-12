@@ -81,14 +81,18 @@ coreutils 9.5 or later. The native GJS owner performs metadata and content check
 there is no second GTK scripting process. Temporary-file setup, metadata checks,
 staging, cleanup and restoration fallbacks remain synchronous.
 
-The initial control theme loads synchronously so acquisition failures still unwind
-activation. Later selections/brightness variants use read-only asynchronous import
-preparation with the same CSS parser and lexical asset bases. `Styles` cancels an
-older preparation before replacement/removal. The panel keeps its applied theme
-and variant until the latest preparation succeeds, then applies the stylesheet,
-UUID class and action icons together. Failure restores the previous presentation;
-reentrant settings changes supersede the in-progress transition. Native theme
-copies and an in-progress candidate are explicitly owned during teardown.
+Every control-theme activation, reactivation and selection/brightness change uses
+read-only asynchronous import preparation with the same CSS parser and lexical
+asset bases. Compilation requires a prepared snapshot. `Styles` cancels an older
+preparation before replacement/removal. Controls stay hidden and empty until the
+first valid presentation. A first-theme failure logs its error and removes
+candidate CSS/staging, retaining owned observers for retry by a valid selection or
+feature reactivation. Actor/settings/signal acquisition failures still unwind
+activation. The panel keeps any valid applied theme and variant until the latest
+preparation succeeds, then applies the stylesheet, UUID class and action icons
+together. Failure restores that presentation; reentrant settings changes supersede
+the in-progress transition, including the first one. Native theme copies and an
+in-progress candidate are explicitly owned during teardown.
 Private generated CSS and native `St.Theme` application remain synchronous; this
 does not claim that all filesystem I/O or native stylesheet parsing is nonblocking.
 

@@ -48,12 +48,14 @@ class Styles {
     this.entries.set(name, path)
     this.calls.push({ type: 'shell', name, path })
   }
-  addScopedShellStyle(name, path, scope, presentation) {
+  addScopedShellStyle(name, path, scope, prepared, presentation) {
+    assert(prepared instanceof Map, 'Styles require a prepared snapshot')
     if (this.scopeError) throw this.scopeError
     const previous = this.entries.get(name)
     this.entries.set(name, path)
     try { presentation?.apply() } catch (error) {
-      this.entries.set(name, previous)
+      if (previous === undefined) this.entries.delete(name)
+      else this.entries.set(name, previous)
       presentation?.rollback()
       throw error
     }
@@ -77,7 +79,7 @@ const Theme = {
   }
 }
 class Controls {
-  constructor() { this.container = { visible: true }; this.classes = new Set(); this.visibilityCalls = [] }
+  constructor() { this.container = { visible: true }; this.classes = new Set(); this.visibilityCalls = []; this.buttons = [] }
   setVisible(value) { this.container.visible = Boolean(value); this.visibilityCalls.push(this.container.visible) }
   add_style_class_name(name) { this.classes.add(name) }
   remove_style_class_name(name) { this.classes.delete(name) }
@@ -101,7 +103,7 @@ function fixture({ appState = Shell.AppState.RUNNING } = {}) {
   Main.panel = Object.assign(new Emitter(), {
     statusArea: {}, background: { red: 0, green: 0, blue: 0 },
     get_theme_node() { return { get_background_color: () => this.background } },
-    addToStatusArea(name, controls) { this.statusArea[name] = controls }
+    addToStatusArea(name, controls) { this.statusArea[name] = controls; controls.setVisible(true) }
   })
   warnings.length = 0
   const values = {
@@ -142,12 +144,13 @@ function fixture({ appState = Shell.AppState.RUNNING } = {}) {
   manager._onFocusWindow(display)
   const state = { context, manager, model: manager.getWindow(win), app, win, display, monitorManager,
     tracker, settings, values, panel: null }
-  state.activatePanel = () => {
+  state.activatePanel = (configure = () => {}) => {
     state.presentationOwner = new PanelManager(context, manager)
     state.panel = state.presentationOwner.windowButtons
     // Actor placement is covered by native/panel acceptance; preserve all real
     // settings, theme resolution, style acquisition and eligibility callbacks.
     state.panel._positionControls = () => {}
+    configure(state.panel)
     state.presentationOwner.activate()
     return state.panel
   }
@@ -478,21 +481,21 @@ test('explicit selection discovers a newly installed theme without brightness re
 test('selection discovery and scoped style failures remain observable and release their owner', state => {
   const owner = state.activatePanel()
   const previousTheme = owner.theme
-  const discoveryFailure = new Error('Injected theme discovery failure')
-  owner.themes.update = () => { throw discoveryFailure }
-  assert(throws(() => state.settings.set('window-buttons-theme', 'not-rewritten'),
-    'Discovery failure disappeared') === discoveryFailure, 'Original discovery failure must propagate')
-  assert(owner.theme === previousTheme, 'Failed discovery must not silently substitute another theme')
-  equal(state.values['window-buttons-theme'], 'not-rewritten', 'Failed discovery does not rewrite selection')
-  const styleFailure = new Error('Injected scoped style acquisition failure')
-  owner.styles.scopeError = styleFailure
   const errors = []
   owner._reportThemeFailure = (error, request) => {
     assert(request === owner.themeRequest, 'Wrong request owns the failure')
     errors.push(error)
   }
+  const discoveryFailure = new Error('Injected theme discovery failure')
+  owner.themes.update = () => { throw discoveryFailure }
+  state.settings.set('window-buttons-theme', 'not-rewritten')
+  assert(errors[0] === discoveryFailure, 'Original discovery failure must remain visible')
+  assert(owner.theme === previousTheme, 'Failed discovery must not silently substitute another theme')
+  equal(state.values['window-buttons-theme'], 'not-rewritten', 'Failed discovery does not rewrite selection')
+  const styleFailure = new Error('Injected scoped style acquisition failure')
+  owner.styles.scopeError = styleFailure
   owner._onThemeChange()
-  assert(errors.length === 1 && errors[0] === styleFailure, 'Current asynchronous style failure must reach its reporter')
+  assert(errors.length === 2 && errors[1] === styleFailure, 'Current asynchronous style failure must reach its reporter')
   assert(owner.theme === previousTheme, 'Failed update must preserve the previous presentation')
   const controls = owner.controls
   const signals = owner.signals
@@ -556,7 +559,7 @@ test('failed or disposed preparation preserves the valid theme and cannot reach 
     'Old activation reached a later owner or reported a stale failure')
 })
 
-test('presentation failure restores class, icons and stylesheet and initial failure still unwinds activation', state => {
+test('presentation failure restores class, icons and stylesheet and first-theme failure permits local recovery', state => {
   const owner = state.activatePanel()
   const original = owner.theme
   const css = owner.styles.entries.get('windowButtons')
@@ -578,10 +581,134 @@ test('presentation failure restores class, icons and stylesheet and initial fail
   state.settings.set('show-window-buttons', 'never')
   Styles.prototype.scopeError = failure
   try {
-    assert(throws(() => state.settings.set('show-window-buttons', 'always'), 'Initial acquisition failure disappeared') === failure,
-      'Initial acquisition changed its failure contract')
-    assert(!owner.controls && !owner.theme && !owner.signals, 'Initial failure retained activation resources')
+    state.settings.set('show-window-buttons', 'always')
+    assert(errors.length === 2 && errors[1] === failure && !owner.themeReady && !owner.controls.container.visible &&
+      owner.controls.buttons.length === 0 && owner.signals.signals.size > 0, 'First-theme failure was exposed or lost retry ownership')
   } finally { delete Styles.prototype.scopeError }
+  const controls = owner.controls
+  state.settings.set('window-buttons-theme', original.uuid)
+  assert(owner.controls === controls && owner.themeReady && controls.container.visible && controls.buttons.length === 3,
+    'A valid selection did not recover the same activation')
+})
+
+function pendingFirstTheme(state) {
+  Styles.prototype.defer = true
+  try { return state.activatePanel() } finally { delete Styles.prototype.defer }
+}
+
+test('initial discovery failure is local and a later selection retries discovery in the same activation', state => {
+  const discovery = Theme.WindowControlsThemes
+  const failure = new Error('Bundled default window controls theme is missing or invalid')
+  const errors = []
+  let owner
+  Theme.WindowControlsThemes = class { constructor() { throw failure } }
+  try { owner = state.activatePanel(panel => { panel._reportThemeFailure = error => errors.push(error) }) }
+  finally { Theme.WindowControlsThemes = discovery }
+  const controls = owner.controls
+  assert(errors[0] === failure && !owner.theme && !owner.themes && !owner.themeReady &&
+    !controls.container.visible && !controls.buttons.length && owner.signals.signals.size > 0,
+    'Discovery failure escaped the local theme boundary or lost retry observers')
+  state.settings.set('window-buttons-theme', 'default')
+  assert(owner.controls === controls && owner.themeReady && controls.container.visible && controls.buttons.length === 3,
+    'Repaired discovery did not recover the same feature activation')
+})
+
+test('pending first theme stays hidden and empty across panel, focus, layout and mode events', state => {
+  const owner = pendingFirstTheme(state)
+  const controls = owner.controls
+  const pending = owner.styles.preparations.at(-1)
+  state.settings.set('window-buttons-layout', ['close'])
+  state.settings.set('button-layout', 'close:')
+  state.settings.set('window-buttons-placement', 'right')
+  state.settings.set('icon-scale-workaround', true)
+  Main.overview.visibleTarget = true
+  Main.overview.emit('showing')
+  state.tracker.emit('notify::focus-app')
+  Main.overview.visibleTarget = false
+  Main.overview.emit('hiding')
+  assert(!owner.themeReady && !controls.container.visible && controls.buttons.length === 0 &&
+    !controls.classes.size && !controls.params && !owner.styles.entries.size,
+    'Pending initial theme exposed controls, icons, classes or CSS')
+  pending.receive(null, new Map())
+  assert(owner.themeReady && controls.container.visible && controls.params.iconScaleWorkaround &&
+    controls.classes.has(owner.theme.uuid), 'Initial theme did not apply the current presentation mode')
+  equal(controls.buttons, ['close'], 'Initial success uses the current layout')
+})
+
+test('first-theme errors, discovery failures and superseding brightness retain retry without applying obsolete results', state => {
+  const owner = pendingFirstTheme(state)
+  owner.styles.defer = true
+  const errors = []
+  owner._reportThemeFailure = error => errors.push(error)
+  const first = owner.styles.preparations.at(-1)
+  const late = first.receive
+  const update = owner.themes.update.bind(owner.themes)
+  const failure = new Error('Initial theme discovery failed')
+  owner.themes.update = () => { throw failure }
+  state.settings.set('window-buttons-theme', 'missing-during-first-read')
+  assert(first.receive === null && errors[0] === failure, 'Discovery failure did not cancel/report the pending first read')
+  late(null, new Map())
+  assert(!owner.themeReady && !owner.controls.container.visible && !owner.styles.entries.size, 'Invalidated first read was applied')
+  owner.themes.update = update
+  const next = owner.themes.available.find(theme => theme.uuid !== owner.theme.uuid)
+  state.settings.set('window-buttons-theme', next.uuid)
+  const obsoleteDark = owner.styles.preparations.at(-1).receive
+  Main.panel.background = { red: 255, green: 255, blue: 255 }
+  Main.panel.emit('style-changed')
+  obsoleteDark(null, new Map())
+  assert(!owner.themeReady, 'Superseded first variant became ready')
+  const readFailure = new Error('Missing imported first-theme file')
+  owner.styles.preparations.at(-1).receive(readFailure, null)
+  assert(errors.at(-1) === readFailure && !owner.themeReady && !owner.controls.buttons.length &&
+    state.values['window-buttons-theme'] === next.uuid, 'First read failure exposed presentation or rewrote settings')
+  state.settings.set('window-buttons-theme', next.uuid)
+  owner.styles.preparations.at(-1).receive(null, new Map())
+  assert(owner.themeReady && owner.theme.uuid === next.uuid && owner.appliedDark === false &&
+    owner.controls.params.actionIcons === owner.theme.getActionIcons(false), 'Latest valid first theme did not recover')
+})
+
+test('failed first presentation clears partial buttons and reentrant first selection still refreshes', state => {
+  const owner = pendingFirstTheme(state)
+  owner.styles.defer = true
+  const controls = owner.controls
+  const choices = owner.themes.available.filter(theme => theme.uuid !== owner.theme.uuid)
+  const addButtons = controls.addButtons.bind(controls)
+  const failure = new Error('Partial first button construction')
+  const errors = []
+  owner._reportThemeFailure = error => errors.push(error)
+  let redirected = false
+  controls.addButtons = buttons => {
+    addButtons(buttons)
+    if (!redirected && buttons.length) {
+      redirected = true
+      state.settings.set('window-buttons-theme', choices[0].uuid)
+      throw failure
+    }
+  }
+  owner.styles.preparations.at(-1).receive(null, new Map())
+  assert(!owner.themeReady && !controls.container.visible && !controls.buttons.length && !controls.classes.size &&
+    !owner.styles.entries.size && owner.styles.preparations.length === 2,
+    'First rollback retained presentation or lost its reentrant retry')
+  owner.styles.preparations.at(-1).receive(null, new Map())
+  assert(owner.themeReady && owner.theme.uuid === choices[0].uuid && controls.container.visible && controls.buttons.length === 3,
+    'Reentrant first selection did not recover')
+})
+
+test('removing a pending first-theme owner detaches reads before a new feature activation', state => {
+  const owner = pendingFirstTheme(state)
+  const first = owner.styles.preparations.at(-1)
+  const late = first.receive
+  const controls = owner.controls
+  state.settings.set('show-window-buttons', 'never')
+  assert(controls.destroyed && first.receive === null && !owner.activation, 'First read outlived its feature owner')
+  Styles.prototype.defer = true
+  try { state.settings.set('show-window-buttons', 'always') } finally { delete Styles.prototype.defer }
+  const current = owner.controls
+  late(null, new Map())
+  assert(current !== controls && !owner.themeReady && !current.container.visible && !current.buttons.length &&
+    !owner.styles.entries.size, 'Disposed first result reached a later activation')
+  owner.styles.preparations.at(-1).receive(null, new Map())
+  assert(owner.themeReady && current.container.visible, 'Reactivated feature did not prepare its own first theme')
 })
 
 test('a selection made reentrantly during presentation supersedes the in-progress transition', state => {

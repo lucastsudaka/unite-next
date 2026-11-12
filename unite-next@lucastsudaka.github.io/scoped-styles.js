@@ -395,7 +395,8 @@ export class ScopedStylesheetStore {
     this.files = new Map()
   }
 
-  compile(path, scope, prepared = null) {
+  compile(path, scope, prepared) {
+    if (!(prepared instanceof Map)) throw new Error('Prepared control stylesheet snapshot is required')
     const created = []
     try {
       if (!this.directory) this.directory = Gio.File.new_for_path(GLib.dir_make_tmp('unite-next-style-XXXXXX'))
@@ -409,7 +410,7 @@ export class ScopedStylesheetStore {
         if (active.has(uri)) throw new Error(`Cyclic control stylesheet import: ${uri}`)
         if (records.has(uri)) return records.get(uri)
         active.add(uri)
-        const bytes = prepared ? prepared.get(uri) : file.load_contents(null)[1]
+        const bytes = prepared.get(uri)
         if (!bytes) throw new Error(`Missing prepared control stylesheet: ${uri}`)
         const text = scopeStylesheet(new TextDecoder('utf-8', { fatal: true }).decode(bytes), scope, file, visit)
         active.delete(uri)
@@ -469,7 +470,7 @@ export class ScopedStylesheet {
     this.roots = new Set()
   }
 
-  load(theme, prepared = null) {
+  load(theme, prepared) {
     if (this.file) throw new Error('Scoped stylesheet is already loaded')
     const retained = new Set(this.store.files.keys())
     try {

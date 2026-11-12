@@ -103,7 +103,7 @@ class ClickGesture extends Emitter {
 
 const Styles = class {
   addShellStyle() {}
-  addScopedShellStyle(name, path, scope, presentation) { presentation?.apply() }
+  addScopedShellStyle(name, path, scope, prepared, presentation) { presentation?.apply() }
   cancelScopedShellStyle() {}
   prepareScopedShellStyle(name, path, scope, receive) { receive(null, new Map()) }
   removeAll() {}
@@ -234,6 +234,7 @@ test('empty layouts and reversed layouts preserve the input in every placement',
   for (const placement of ['auto', 'left', 'right', 'first', 'last']) {
     for (const empty of [[], null]) {
       const owner = new panel.WindowButtons(context())
+      owner.themeReady = true
       owner.context.values['window-buttons-placement'] = placement
       owner.context.values['window-buttons-layout'] = empty
       owner.settings = new Settings(owner.context)
@@ -245,6 +246,7 @@ test('empty layouts and reversed layouts preserve the input in every placement',
     }
   }
   const owner = new panel.WindowButtons(context())
+  owner.themeReady = true
   const original = owner.context.values['window-buttons-layout']
   owner.context.values['window-buttons-placement'] = 'left'
   owner.settings = new Settings(owner.context)

@@ -193,11 +193,11 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
       this.settings = new Settings(this.context)
       this.styles   = new Styles()
       this.controls = new Buttons.WindowControls(() => this.context.focusWindow)
-      this.themes   = new Theme.WindowControlsThemes()
-      this.theme    = this.themes.default
+      this.themes = this.theme = null
       this.isDark   = Theme.isColorDark(Main.panel.get_theme_node().get_background_color())
       this.appliedDark = this.isDark
       this.themeReady = this.applyingTheme = this.refreshTheme = false
+      this.controls.setVisible(false)
 
       this.signals.connect(
         Main.overview, 'showing', this._syncVisible.bind(this)
@@ -239,6 +239,10 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
         'uniteNextWindowControls', this.controls, this.index, this.side
       )
 
+      if (activation !== this.activation) return
+      // Native panel registration shows the container even before a theme is ready.
+      this._syncVisible()
+      if (activation !== this.activation) return
       this._onThemeChange()
       if (activation !== this.activation) return
       this._positionControls()
@@ -295,6 +299,7 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
     }
 
     _onLayoutChange() {
+      if (!this.themeReady) return
       const activation = this.activation
       const controls = this.controls
       const buttons = [...(this.settings.get('window-buttons-layout') || [])]
@@ -338,23 +343,20 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
       this.styles.cancelScopedShellStyle('windowButtons')
       if (this.applyingTheme) { this.refreshTheme = true; return }
       try {
+        this.themes ??= new Theme.WindowControlsThemes()
+        this.theme ??= this.themes.default
         const theme = this.themes.locate(this.themeName, this.gtkTheme)
         const dark = this.isDark
-        if (!this.themeReady) {
-          this._commitTheme(theme, dark, null, request)
-        } else {
-          this.styles.prepareScopedShellStyle('windowButtons', theme.getStyle(dark), Buttons.WINDOW_CONTROLS_SCOPE,
-            (error, prepared) => {
-              if (activation !== this.activation || request !== this.themeRequest || !this.controls) return
-              try {
-                if (error) throw error
-                this._commitTheme(theme, dark, prepared, request)
-              } catch (failure) { this._reportThemeFailure(failure, request) }
-            })
-        }
+        this.styles.prepareScopedShellStyle('windowButtons', theme.getStyle(dark), Buttons.WINDOW_CONTROLS_SCOPE,
+          (error, prepared) => {
+            if (activation !== this.activation || request !== this.themeRequest || !this.controls) return
+            try {
+              if (error) throw error
+              this._commitTheme(theme, dark, prepared, request)
+            } catch (failure) { this._reportThemeFailure(failure, request) }
+          })
       } catch (error) {
         if (activation !== this.activation) return
-        if (!this.themeReady) throw error
         this._reportThemeFailure(error, request)
       }
     }
@@ -372,7 +374,21 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
       const previous = { theme: this.theme, dark: this.appliedDark, ready: this.themeReady }
       const present = (selection, variant, ready) => {
         if (!current()) return
-        controls.remove_style_class_name(this.theme.uuid)
+        if (!ready) {
+          this.themeReady = false
+          runCleanup([
+            () => { if (current()) controls.setVisible(false) },
+            () => { if (current() && this.theme) controls.remove_style_class_name(this.theme.uuid) },
+            () => {
+              if (!current()) return
+              this.theme = selection
+              this.appliedDark = variant
+              controls.addButtons([])
+            }
+          ])
+          return
+        }
+        if (this.theme) controls.remove_style_class_name(this.theme.uuid)
         if (!current()) return
         this.theme = selection
         this.appliedDark = variant
@@ -386,7 +402,7 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
         if (!current() || request !== this.themeRequest) throw new Error('Control theme request was superseded')
       }
       try {
-        styles.addScopedShellStyle('windowButtons', theme.getStyle(dark), Buttons.WINDOW_CONTROLS_SCOPE, {
+        styles.addScopedShellStyle('windowButtons', theme.getStyle(dark), Buttons.WINDOW_CONTROLS_SCOPE, prepared, {
           apply: () => {
             check()
             present(theme, dark, true)
@@ -394,13 +410,13 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
           },
           rollback: () => { if (current()) present(previous.theme, previous.dark, previous.ready) },
           check
-        }, prepared)
+        })
       } finally {
         if (current()) {
           this.applyingTheme = false
           const refresh = this.refreshTheme
           this.refreshTheme = false
-          if (refresh && this.themeReady) this._onThemeChange()
+          if (refresh) this._onThemeChange()
         }
       }
     }
@@ -408,8 +424,10 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
     _onThemeSelectionChanged() {
       this.themeRequest++
       this.styles.cancelScopedShellStyle('windowButtons')
-      this.themes.update()
-      this._onThemeChange()
+      try {
+        this.themes?.update()
+        this._onThemeChange()
+      } catch (error) { this._reportThemeFailure(error, this.themeRequest) }
     }
 
     _onPanelStyleChange() {
@@ -435,7 +453,7 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
     }
 
     _syncVisible() {
-      this.controls.setVisible(isWindowControlsVisible({
+      this.controls.setVisible(this.themeReady && isWindowControlsVisible({
         overviewVisible: Main.overview.visibleTarget,
         appRunning: this.context.focusApp?.state === Shell.AppState.RUNNING,
         window: this.context.focusWindow
@@ -443,6 +461,7 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
     }
 
     _updateIconScaleWorkaround(forceLayoutChange = false) {
+      if (!this.themeReady) return
       const activation = this.activation
       const controls = this.controls
       controls.setControlThemeParams({

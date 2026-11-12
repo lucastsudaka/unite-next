@@ -164,16 +164,53 @@ export async function run() {
   await Scripting.createTestWindow({ maximized: true })
   await Scripting.waitTestWindows()
   await until(() => owner.windowManager.windows.size > 0, 'real window acquired')
-  const normal = resources(owner)
-  assert(manager.enableExtension(UPSTREAM_UUID), 'Late upstream activation was rejected')
-  await until(() => upstream().state === ExtensionState.ACTIVE && fork().state === ExtensionState.INACTIVE,
-    'normal native conflict handoff')
+  const feature = owner.panelManager.windowButtons
+  const settings = owner.getSettings()
+  settings.set_string('show-window-buttons', 'never')
+  settings.set_string('window-buttons-theme', 'default')
+  // Hold only the disposable fixture's first CSS completion across native handoff.
+  // The real GIO finish must still consume it after cancellation, without delivery.
+  const readAsync = Gio.File.prototype.load_contents_async
+  const themeFiles = owner.dir.get_child('themes')
+  const held = []
+  let completed = false
+  let holding = true
+  Gio.File.prototype.load_contents_async = function (cancellable, callback) {
+    if (!this.has_prefix(themeFiles)) return readAsync.call(this, cancellable, callback)
+    return readAsync.call(this, cancellable, (file, result) => {
+      const finish = () => { callback(file, result); completed = true }
+      if (holding) held.push(finish)
+      else finish()
+    })
+  }
+  let normal
+  try {
+    settings.set_string('show-window-buttons', 'always')
+    const pending = feature.styles.preparations.get('windowButtons').preparation
+    const read = pending.read
+    assert(!feature.themeReady && !feature.controls.container.visible && feature.controls._buttons.size === 0,
+      'Pending first theme exposed native controls')
+    normal = resources(owner)
+    assert(manager.enableExtension(UPSTREAM_UUID), 'Late upstream activation was rejected')
+    await until(() => upstream().state === ExtensionState.ACTIVE && fork().state === ExtensionState.INACTIVE,
+      'normal native conflict handoff during first CSS read')
+    assert(!pending.receive && !read.receive && !pending.read && !pending.records &&
+      !feature.activation && !feature.controls && !feature.styles, 'Conflict retained a pending first-theme owner')
+    await until(() => held.length === 1, 'detached first native CSS completion')
+    held.shift()()
+    assert(completed && !feature.activation && !feature.controls, 'Late first completion reached a disposed feature')
+  } finally {
+    holding = false
+    Gio.File.prototype.load_contents_async = readAsync
+    for (const finish of held) finish()
+  }
   released(owner, normal)
   preserved()
   assert(global.settings.get_strv('enabled-extensions').includes(UPSTREAM_UUID) &&
     !global.settings.get_strv('disabled-extensions').includes(UPSTREAM_UUID), 'Fork removed upstream enabled membership')
   const nativeCounts = { enables: upstreamOwner.enableCount, disables: upstreamOwner.disableCount || 0 }
   record('late upstream ACTIVATING releases real fork effects before upstream enable and reaches native INACTIVE')
+  record('upstream handoff cancels the pending first theme and consumes its late GIO result without owner delivery')
   await deactivate(UPSTREAM_UUID)
   for (let cycle = 0; cycle < 3; cycle++) {
     await activateFork()

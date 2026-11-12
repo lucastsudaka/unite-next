@@ -29,6 +29,7 @@ export async function run() {
   assert(extension?.stateObj?.context, `Initial activation failed: ${extension?.error}`)
   const owner = extension.stateObj
   const settings = owner.getSettings()
+  await until(() => owner.panelManager.windowButtons.themeReady, 'first asynchronous control theme')
   const retiredKeys = ['show-legacy-tray', 'greyscale-tray-icons']
   const removalPhases = []
   const buttonsModule = await import(owner.dir.get_child('buttons.js').get_uri())
@@ -105,6 +106,7 @@ export async function run() {
           Main.panel.set_style(`background-color: ${dark ? 'rgb(0,0,0)' : 'rgb(255,255,255)'};`)
           await Scripting.waitLeisure()
           await until(() => owner.panelManager.windowButtons.theme.uuid === theme.uuid &&
+            owner.panelManager.windowButtons.themeReady &&
             owner.panelManager.windowButtons.appliedDark === dark &&
             owner.panelManager.windowButtons.styles.preparations.size === 0,
           `prepared ${theme.uuid} ${dark ? 'dark' : 'light'} controls`)
