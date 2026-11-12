@@ -2,6 +2,7 @@ import Gio from 'gi://Gio'
 import GLib from 'gi://GLib'
 import St from 'gi://St'
 import { runCleanup } from './resources.js'
+import { FileRead } from './file-reads.js'
 
 // St 50/51 inherits the stage theme: there is no per-widget theme override.
 // Constrain each matched target without changing its ancestor/combinator chain.
@@ -316,6 +317,76 @@ export function scopeStylesheet(text, scope, base, imported) {
   return result
 }
 
+// Preparation owns only input bytes and parsing state, never a stylesheet store.
+// Each native read is detached before cancellation; no later completion can
+// resume this traversal or reach its disposed presentation owner.
+export class StylesheetPreparation {
+  constructor(path, scope, receive) {
+    const file = Gio.File.new_for_path(path)
+    this.scope = scope
+    this.receive = receive
+    this.records = new Map()
+    this.active = new Set([file.get_uri()])
+    this.frames = [{ file, imports: null, index: 0 }]
+    this.read = null
+    try { this._advance() } catch (error) { this.cancel(); throw error }
+  }
+
+  _advance() {
+    while (this.frames.length) {
+      const frame = this.frames[this.frames.length - 1]
+      if (frame.imports === null) {
+        this.read = new FileRead(frame.file, this._loaded.bind(this, frame))
+        return
+      }
+      if (frame.index < frame.imports.length) {
+        const file = frame.imports[frame.index++]
+        const uri = file.get_uri()
+        if (this.active.has(uri)) throw new Error(`Cyclic control stylesheet import: ${uri}`)
+        if (this.records.has(uri)) continue
+        this.active.add(uri)
+        this.frames.push({ file, imports: null, index: 0 })
+      } else {
+        this.active.delete(frame.file.get_uri())
+        this.frames.pop()
+      }
+    }
+    return true
+  }
+
+  _loaded(frame, error, bytes) {
+    this.read = null
+    if (error) { this._finish(error); return }
+    let complete = false
+    try {
+      frame.imports = []
+      // Use the same token-aware parser as compilation, preserving lexical bases.
+      scopeStylesheet(new TextDecoder('utf-8', { fatal: true }).decode(bytes), this.scope, frame.file, file => {
+        frame.imports.push(file)
+        return file
+      })
+      this.records.set(frame.file.get_uri(), bytes)
+      complete = this._advance()
+    } catch (failure) { this._finish(failure); return }
+    if (complete) this._finish(null)
+  }
+
+  _finish(error) {
+    const receive = this.receive
+    const records = this.records
+    this.cancel()
+    receive?.(error, error ? null : records)
+  }
+
+  cancel() {
+    this.receive = null
+    this.read?.cancel()
+    this.read = this.records = null
+    this.frames = []
+    this.active.clear()
+  }
+}
+
 // One store spans a feature activation. Content-addressed paths let native
 // St.Theme reuse its opaque import cache across unchanged theme selections.
 export class ScopedStylesheetStore {
@@ -324,7 +395,7 @@ export class ScopedStylesheetStore {
     this.files = new Map()
   }
 
-  compile(path, scope) {
+  compile(path, scope, prepared = null) {
     const created = []
     try {
       if (!this.directory) this.directory = Gio.File.new_for_path(GLib.dir_make_tmp('unite-next-style-XXXXXX'))
@@ -338,7 +409,8 @@ export class ScopedStylesheetStore {
         if (active.has(uri)) throw new Error(`Cyclic control stylesheet import: ${uri}`)
         if (records.has(uri)) return records.get(uri)
         active.add(uri)
-        const [, bytes] = file.load_contents(null)
+        const bytes = prepared ? prepared.get(uri) : file.load_contents(null)[1]
+        if (!bytes) throw new Error(`Missing prepared control stylesheet: ${uri}`)
         const text = scopeStylesheet(new TextDecoder('utf-8', { fatal: true }).decode(bytes), scope, file, visit)
         active.delete(uri)
         // Distinct original sheets also retain distinct native cascade identities.
@@ -393,13 +465,16 @@ export class ScopedStylesheet {
     this.ownsStore = store === null
     this.store = store || new ScopedStylesheetStore()
     this.file = this.loadedTheme = null
+    this.transition = null
+    this.roots = new Set()
   }
 
-  load(theme) {
+  load(theme, prepared = null) {
     if (this.file) throw new Error('Scoped stylesheet is already loaded')
     const retained = new Set(this.store.files.keys())
     try {
-      this.file = this.store.compile(this.path, this.scope)
+      this.file = this.store.compile(this.path, this.scope, prepared)
+      this.roots.add(this.file)
       this.loadedTheme = theme
       if (!theme.load_stylesheet(this.file)) throw new Error('Native scoped stylesheet loading failed')
     } catch (error) {
@@ -407,12 +482,73 @@ export class ScopedStylesheet {
     }
   }
 
+  replace(theme, path, scope, prepared, presentation) {
+    if (!this.file) throw new Error('Scoped stylesheet is not loaded')
+    if (this.transition) throw new Error('Scoped stylesheet transition is already in progress')
+    const retained = new Set(this.store.files.keys())
+    const previous = this.file
+    const owners = [...new Set([theme, this.loadedTheme])]
+    const contains = (owner, file) => owner.get_custom_stylesheets().some(entry => entry.equal(file))
+    const originalOwners = owners.filter(owner => contains(owner, previous))
+    let next = null
+    let acquired = false
+    let applying = false
+    const checkTheme = () => {
+      if (presentation.currentTheme && presentation.currentTheme() !== theme)
+        throw new Error('Native theme changed during scoped stylesheet transition')
+    }
+    try {
+      next = this.store.compile(path, scope, prepared)
+      this.roots.add(next)
+      this.transition = { theme, file: next }
+      if (!contains(theme, next)) {
+        acquired = true
+        if (!theme.load_stylesheet(next)) throw new Error('Native scoped stylesheet loading failed')
+      }
+      if (this.file !== previous) throw new Error('Scoped stylesheet owner was disposed during loading')
+      checkTheme()
+      applying = true
+      presentation.apply()
+      checkTheme()
+      runCleanup(owners.filter(owner => owner !== theme || !next.equal(previous))
+        .map(owner => () => owner.unload_stylesheet(previous)))
+      if (this.file !== previous) throw new Error('Scoped stylesheet owner was disposed during transition')
+      checkTheme()
+      presentation.check?.()
+      this.path = path
+      this.scope = scope
+      this.file = next
+      this.loadedTheme = theme
+    } catch (error) {
+      let current = null
+      let recoveryError = null
+      try { current = presentation.currentTheme?.() } catch (failure) { recoveryError = failure }
+      const recover = new Set([...originalOwners, ...(current ? [current] : [])])
+      runCleanup([
+        () => { throw error },
+        () => { if (recoveryError) throw recoveryError },
+        () => { if (applying) presentation.rollback() },
+        ...[...new Set([theme, current])].filter(Boolean).map(owner => () => {
+          if (next && (acquired || !next.equal(previous))) owner.unload_stylesheet(next)
+        }),
+        ...[...recover].map(owner => () => {
+          if (this.file && !contains(owner, previous) && !owner.load_stylesheet(previous))
+            throw new Error('Native scoped stylesheet restoration failed')
+        }),
+        () => this.store.rollback(retained)
+      ])
+    } finally { this.transition = null }
+  }
+
   unload(theme) {
-    const file = this.file
-    const themes = new Set([theme, this.loadedTheme])
+    const roots = [...this.roots]
+    this.roots.clear()
+    const transition = this.transition
+    const themes = new Set([theme, this.loadedTheme, transition?.theme])
+    this.transition = null
     this.file = this.loadedTheme = null
     runCleanup([
-      ...[...themes].filter(Boolean).map(owner => () => { if (file) owner.unload_stylesheet(file) }),
+      ...[...themes].filter(Boolean).flatMap(owner => roots.map(file => () => owner.unload_stylesheet(file))),
       () => { if (this.ownsStore) this.store.clear() }
     ])
   }

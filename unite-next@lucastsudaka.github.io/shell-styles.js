@@ -4,10 +4,14 @@ import St from 'gi://St'
 import * as Convenience from './convenience.js'
 import { ScopedStylesheet } from './scoped-styles.js'
 
+export function stylesheetPath(path) {
+  return path.toString().startsWith('/') ? path :
+    GLib.build_filenamev([Convenience.getPath(), path.replace(/^@/, '')])
+}
+
 export class ShellStyle {
   constructor(path) {
-    const absolute = path.toString().startsWith('/') ? path :
-      GLib.build_filenamev([Convenience.getPath(), path.replace(/^@/, '')])
+    const absolute = stylesheetPath(path)
     if (GLib.file_test(absolute, GLib.FileTest.EXISTS)) this.file = Gio.File.new_for_path(absolute)
   }
 
@@ -34,8 +38,14 @@ export class ScopedShellStyle extends ShellStyle {
     this.scoped = new ScopedStylesheet(this.file.get_path(), scope, store)
   }
 
-  load() {
-    this.scoped.load(this.theme)
+  load(prepared = null) {
+    this.scoped.load(this.theme, prepared)
+  }
+
+  replace(path, scope, prepared, presentation) {
+    const absolute = stylesheetPath(path)
+    this.scoped.replace(this.theme, absolute, scope, prepared, { ...presentation, currentTheme: () => this.theme })
+    this.file = Gio.File.new_for_path(absolute)
   }
 
   unload() {

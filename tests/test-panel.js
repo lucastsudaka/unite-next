@@ -101,7 +101,13 @@ class ClickGesture extends Emitter {
   }
 }
 
-const Styles = class { addShellStyle() {} addScopedShellStyle() {} removeAll() {} }
+const Styles = class {
+  addShellStyle() {}
+  addScopedShellStyle(name, path, scope, presentation) { presentation?.apply() }
+  cancelScopedShellStyle() {}
+  prepareScopedShellStyle(name, path, scope, receive) { receive(null, new Map()) }
+  removeAll() {}
+}
 const InjectionManager = class {
   constructor() { this.overrides = [] }
   overrideMethod(prototype, name, create) {

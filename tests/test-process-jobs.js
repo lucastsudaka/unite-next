@@ -225,4 +225,46 @@ test('unmanaged rejects malformed gone results, unrelated errors and ownership c
   }
 })
 
+test('normal output collection is asynchronous for large binary stdout and failed stderr', () => {
+  const cases = [
+    { code: 'import sys; sys.stdout.buffer.write(bytes([0,255,254,13,10])*200000)', binary: true,
+      verify(error, output) { assert(!error && output.length === 1000000 && output[1] === 255 && output[2] === 254, 'Binary stdout changed') } },
+    { code: 'import sys; sys.stderr.write("diagnostic"*100000); sys.exit(7)', index: 2,
+      verify(error) { assert(error?.message.includes('status 7') && error.message.endsWith('diagnostic'), 'Failed stderr/status changed') } },
+    { code: 'print("not-json")', decode: JSON.parse,
+      verify(error) { assert(error instanceof SyntaxError, 'Asynchronous decode failure disappeared') } }
+  ]
+  for (const entry of cases) {
+    const job = new ProcessJob(['/usr/bin/timeout', '--foreground', '--signal=KILL', '1s',
+      '/usr/bin/python3', '-I', '-c', entry.code], '', entry.decode, entry.binary)
+    const directory = job.directory
+    job.files[entry.index || 1].load_contents = () => { throw new Error('Normal completion used a synchronous read') }
+    let done = false
+    let observed
+    job.watch((error, output) => { observed = { error, output }; done = true })
+    turnUntil(() => done)
+    entry.verify(observed.error, observed.output)
+    assert(!directory.query_exists(null) && !job.read && !job.callback && !job.process, 'Normal completion retained IPC or delivery')
+    throws(() => job.finish(), 'Completed command was consumed twice')
+  }
+})
+
+test('synchronous drain during an output read detaches delivery and preserves exact bytes', () => {
+  const job = new ProcessJob(['/usr/bin/printf', 'pending-output'])
+  const directory = job.directory
+  const file = job.files[1]
+  let finished = false
+  const finish = file.load_contents_finish.bind(file)
+  file.load_contents_finish = result => { try { return finish(result) } finally { finished = true } }
+  let callbacks = 0
+  job.watch(() => callbacks++)
+  turnUntil(() => job.read !== null)
+  const read = job.read
+  const cancellable = read.cancellable
+  assert(job.finish() === 'pending-output', 'Draining lost the pending output')
+  assert(cancellable.is_cancelled() && read.receive === null && !directory.query_exists(null), 'Drain did not detach and clean')
+  turnUntil(() => finished)
+  assert(callbacks === 0 && !job.process && !job.callback && !job.read, 'A late result reached the drained command')
+})
+
 print(`PROCESS_JOBS_PASS scenarios=${passed}`)

@@ -183,9 +183,12 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
   class WindowButtons extends Feature {
     constructor(context) {
       super(context, 'show-window-buttons', setting => setting != 'never')
+      this.themeRequest = 0
+      this.activation = null
     }
 
     activate() {
+      const activation = this.activation = {}
       this.signals  = new Signals()
       this.settings = new Settings(this.context)
       this.styles   = new Styles()
@@ -193,6 +196,8 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
       this.themes   = new Theme.WindowControlsThemes()
       this.theme    = this.themes.default
       this.isDark   = Theme.isColorDark(Main.panel.get_theme_node().get_background_color())
+      this.appliedDark = this.isDark
+      this.themeReady = this.applyingTheme = this.refreshTheme = false
 
       this.signals.connect(
         Main.overview, 'showing', this._syncVisible.bind(this)
@@ -235,7 +240,9 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
       )
 
       this._onThemeChange()
+      if (activation !== this.activation) return
       this._positionControls()
+      if (activation !== this.activation) return
       this._syncVisible()
     }
 
@@ -288,14 +295,16 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
     }
 
     _onLayoutChange() {
+      const activation = this.activation
+      const controls = this.controls
       const buttons = [...(this.settings.get('window-buttons-layout') || [])]
 
       if (this.side != this.position) {
         buttons.reverse()
       }
 
-      this.controls.addButtons(buttons)
-      this._syncVisible()
+      controls.addButtons(buttons)
+      if (activation === this.activation && controls === this.controls) this._syncVisible()
     }
 
     _positionControls() {
@@ -323,17 +332,82 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
     }
 
     _onThemeChange() {
-      this.controls.remove_style_class_name(this.theme.uuid)
+      if (!this.activation || !this.controls) return
+      const activation = this.activation
+      const request = ++this.themeRequest
+      this.styles.cancelScopedShellStyle('windowButtons')
+      if (this.applyingTheme) { this.refreshTheme = true; return }
+      try {
+        const theme = this.themes.locate(this.themeName, this.gtkTheme)
+        const dark = this.isDark
+        if (!this.themeReady) {
+          this._commitTheme(theme, dark, null, request)
+        } else {
+          this.styles.prepareScopedShellStyle('windowButtons', theme.getStyle(dark), Buttons.WINDOW_CONTROLS_SCOPE,
+            (error, prepared) => {
+              if (activation !== this.activation || request !== this.themeRequest || !this.controls) return
+              try {
+                if (error) throw error
+                this._commitTheme(theme, dark, prepared, request)
+              } catch (failure) { this._reportThemeFailure(failure, request) }
+            })
+        }
+      } catch (error) {
+        if (activation !== this.activation) return
+        if (!this.themeReady) throw error
+        this._reportThemeFailure(error, request)
+      }
+    }
 
-      this.theme = this.themes.locate(this.themeName, this.gtkTheme)
-      this.styles.addScopedShellStyle('windowButtons', this.theme.getStyle(this.isDark), Buttons.WINDOW_CONTROLS_SCOPE)
+    _reportThemeFailure(error, request) {
+      if (request === this.themeRequest && this.controls)
+        console.error(`Unite Next window controls theme update failed: ${error.message}`)
+    }
 
-      this.controls.add_style_class_name(this.theme.uuid)
-
-      this._updateIconScaleWorkaround(true)
+    _commitTheme(theme, dark, prepared, request) {
+      const activation = this.activation
+      const controls = this.controls
+      const styles = this.styles
+      const current = () => activation === this.activation && controls === this.controls && styles === this.styles
+      const previous = { theme: this.theme, dark: this.appliedDark, ready: this.themeReady }
+      const present = (selection, variant, ready) => {
+        if (!current()) return
+        controls.remove_style_class_name(this.theme.uuid)
+        if (!current()) return
+        this.theme = selection
+        this.appliedDark = variant
+        this.themeReady = ready
+        controls.add_style_class_name(selection.uuid)
+        if (!current()) return
+        this._updateIconScaleWorkaround(true)
+      }
+      this.applyingTheme = true
+      const check = () => {
+        if (!current() || request !== this.themeRequest) throw new Error('Control theme request was superseded')
+      }
+      try {
+        styles.addScopedShellStyle('windowButtons', theme.getStyle(dark), Buttons.WINDOW_CONTROLS_SCOPE, {
+          apply: () => {
+            check()
+            present(theme, dark, true)
+            check()
+          },
+          rollback: () => { if (current()) present(previous.theme, previous.dark, previous.ready) },
+          check
+        }, prepared)
+      } finally {
+        if (current()) {
+          this.applyingTheme = false
+          const refresh = this.refreshTheme
+          this.refreshTheme = false
+          if (refresh && this.themeReady) this._onThemeChange()
+        }
+      }
     }
 
     _onThemeSelectionChanged() {
+      this.themeRequest++
+      this.styles.cancelScopedShellStyle('windowButtons')
       this.themes.update()
       this._onThemeChange()
     }
@@ -369,23 +443,30 @@ export function createPanelFeatures({ St, Pango, Clutter, Meta, Shell, Main, Inj
     }
 
     _updateIconScaleWorkaround(forceLayoutChange = false) {
-      this.controls.setControlThemeParams({
-        actionIcons: this.theme.getActionIcons(this.isDark),
+      const activation = this.activation
+      const controls = this.controls
+      controls.setControlThemeParams({
+        actionIcons: this.theme.getActionIcons(this.appliedDark),
         iconScaleWorkaround: this.iconScaleWorkaround
       })
 
-      if (forceLayoutChange) {
+      if (forceLayoutChange && activation === this.activation && controls === this.controls) {
         this._onLayoutChange()
       }
     }
 
     destroy() {
+      this.themeRequest++
+      this.activation = null
+      this.refreshTheme = false
+      const { signals, settings, styles, controls } = this
+      this.signals = this.settings = this.styles = null
+      this.controls = this.theme = this.themes = null
       runCleanup([
-        () => this.signals?.disconnectAll(),
-        () => this.settings?.disconnectAll(),
-        () => this.styles?.removeAll(),
-        () => this.controls?.destroy(),
-        () => { this.controls = this.theme = this.themes = null }
+        () => signals?.disconnectAll(),
+        () => settings?.disconnectAll(),
+        () => controls?.destroy(),
+        () => styles?.removeAll()
       ])
     }
   }

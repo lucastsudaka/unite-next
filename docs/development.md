@@ -66,14 +66,31 @@ held by other editors after the transaction. No automatic recovery garbage
 collection is safe against such writers. Tests cover these boundaries and
 timeouts; this protocol deliberately makes no linearizable CAS claim.
 
-`process-jobs.js` owns private command files, child completion polling and complete
-synchronous draining. X11 hide/show and GTK application/update coalesce while
+`file-reads.js` owns cancellable read-only GIO requests. It detaches delivery before
+cancellation and consumes the eventual native finish result without retaining a
+disposed desktop/transaction owner or starting more work.
+`process-jobs.js` owns private command files, child completion polling, asynchronous
+normal stdout/stderr collection and complete synchronous draining. X11 hide/show and GTK application/update coalesce while
 commands execute. Removing a GTK owner, including a preference change that removes
 global styling, restores synchronously before releasing ownership. Disable removes
-polling and drains each owner before completing restoration.
+polling, detaches pending read delivery and drains each owner before completing
+restoration. An already-ready or cancelled read can finish later only to discard
+its result; it cannot resume a transaction or reach the removed owner.
 GTK uses `mv --exchange --no-copy`, `ln`, `realpath`, `sync`, `dd` and `timeout` from GNU
 coreutils 9.5 or later. The native GJS owner performs metadata and content checks;
-there is no second GTK scripting process. Local file I/O remains synchronous.
+there is no second GTK scripting process. Temporary-file setup, metadata checks,
+staging, cleanup and restoration fallbacks remain synchronous.
+
+The initial control theme loads synchronously so acquisition failures still unwind
+activation. Later selections/brightness variants use read-only asynchronous import
+preparation with the same CSS parser and lexical asset bases. `Styles` cancels an
+older preparation before replacement/removal. The panel keeps its applied theme
+and variant until the latest preparation succeeds, then applies the stylesheet,
+UUID class and action icons together. Failure restores the previous presentation;
+reentrant settings changes supersede the in-progress transition. Native theme
+copies and an in-progress candidate are explicitly owned during teardown.
+Private generated CSS and native `St.Theme` application remain synchronous; this
+does not claim that all filesystem I/O or native stylesheet parsing is nonblocking.
 
 ## Verification levels
 

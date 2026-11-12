@@ -22,12 +22,27 @@ X11 hide/show and GTK application/update command completion is observed by an
 owned removable GLib source;
 GIO reaps the child, and private files carry command input/output without blocking
 on a full pipe. Teardown removes the completion source, drains the bounded command
-and completes restoration before returning. No GIO asynchronous completion callback
-is left queued after disable. Local GIO file operations are still synchronous;
-this design does not claim all filesystem I/O is nonblocking.
+and completes restoration before returning. Normal command-output collection uses
+asynchronous GIO reads. Before synchronous draining, read delivery is detached and
+cancellation requested. A terminal read completion may still be queued after
+disable, but it only consumes the matching native finish result/error and discards
+it. It retains no desktop/transaction owner, invokes no application callback and
+starts no further work. Timers/signals, commands, writes and restoration retain
+their synchronous cleanup obligations. Temporary-file setup, metadata checks,
+staging, cleanup and restoration fallbacks remain synchronous; this design does
+not claim all filesystem I/O is nonblocking.
 Removing a GTK owner, including a preference change that removes global styling,
 also drains and restores synchronously before releasing ownership. Rollback and
 window removal retain their deterministic draining boundary.
+
+The first control-theme acquisition remains synchronous for activation rollback.
+Subsequent theme/brightness changes prepare the complete import closure through
+read-only asynchronous GIO requests, reusing the token-aware CSS parser. The prior
+valid CSS, theme class, variant and icons remain together until the latest request
+can be applied synchronously. Superseded/disposed reads cannot apply or stage a
+theme; current failures stay visible and preserve the previous presentation.
+Native `St.Theme` loading and private generated CSS remain synchronous. This uses
+GIO directly without a new helper process or binary dependency.
 
 ## XWayland property helper
 

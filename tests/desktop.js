@@ -104,6 +104,11 @@ export async function run() {
         for (const dark of [true, false, true]) {
           Main.panel.set_style(`background-color: ${dark ? 'rgb(0,0,0)' : 'rgb(255,255,255)'};`)
           await Scripting.waitLeisure()
+          await until(() => owner.panelManager.windowButtons.theme.uuid === theme.uuid &&
+            owner.panelManager.windowButtons.appliedDark === dark &&
+            owner.panelManager.windowButtons.styles.preparations.size === 0,
+          `prepared ${theme.uuid} ${dark ? 'dark' : 'light'} controls`)
+          await Scripting.waitLeisure()
           const controls = Main.panel.statusArea.uniteNextWindowControls
           assert(controls._buttons.size === 3, `Missing controls for ${theme.uuid}`)
           assert(controls._iconScaleWorkaround === mode, 'Rendering mode was not applied')

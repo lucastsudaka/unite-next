@@ -1,5 +1,7 @@
 // REQ-LIFE-001/002: native ESM with real GLib and owned boundary failures.
 import GLib from 'gi://GLib'
+import Gio from 'gi://Gio'
+import { FileRead } from '../unite-next@lucastsudaka.github.io/file-reads.js'
 import { Signals, Timeouts, runCleanup } from '../unite-next@lucastsudaka.github.io/resources.js'
 import { assert, throws } from './assert.js'
 
@@ -98,6 +100,61 @@ test('cleanup preserves original and ordered aggregate failures while attempting
   assert(calls.join(',') === '1,2,3' && aggregate.errors[0] === first && aggregate.errors[1] === second &&
     aggregate.cause === first && aggregate.message.includes(first.message) && aggregate.message.includes(second.message),
   'Independent traversal or original aggregate diagnostics changed')
+})
+
+test('read completion consumes native success once and releases delivery references', () => {
+  let complete
+  let finished = 0
+  const expected = new Uint8Array([0, 255, 13, 10])
+  const file = {
+    load_contents_async(cancellable, callback) { complete = callback },
+    load_contents_finish() { finished++; return [true, expected] }
+  }
+  let delivered = 0
+  const read = new FileRead(file, (error, bytes) => {
+    assert(!error && bytes === expected, 'Read result changed')
+    delivered++
+  })
+  complete(file, {})
+  read.cancel()
+  assert(finished === 1 && delivered === 1 && read.receive === null && read.cancellable === null,
+    'Completed read retained delivery or cancellation ownership')
+})
+
+test('cancelled reads consume queued success and failure without reaching a disposed owner', () => {
+  for (const failure of [null, new Error('Queued read failure')]) {
+    let complete
+    let finished = 0
+    const file = {
+      load_contents_async(cancellable, callback) { complete = callback },
+      load_contents_finish() { finished++; if (failure) throw failure; return [true, new Uint8Array([1])] }
+    }
+    const read = new FileRead(file, () => { throw new Error('Disposed owner received a result') })
+    const cancellable = read.cancellable
+    read.cancel()
+    read.cancel()
+    assert(cancellable.is_cancelled() && read.receive === null, 'Cancellation did not detach delivery')
+    complete(file, {})
+    assert(finished === 1 && read.cancellable === null, 'Terminal result was not consumed')
+  }
+})
+
+test('real GIO cancellation completes later without an owner callback', () => {
+  const file = Gio.File.new_for_path(`${GLib.get_home_dir()}/cancelled-read`)
+  file.replace_contents('private fixture', null, false, Gio.FileCreateFlags.PRIVATE, null)
+  let finished = false
+  const finish = file.load_contents_finish.bind(file)
+  file.load_contents_finish = result => { try { return finish(result) } finally { finished = true } }
+  const read = new FileRead(file, () => { throw new Error('Cancelled native read delivered to its owner') })
+  read.cancel()
+  assert(!finished, 'Native cancellation completed synchronously')
+  const end = GLib.get_monotonic_time() + 2000000
+  while (!finished && GLib.get_monotonic_time() < end) {
+    GLib.MainContext.default().iteration(false)
+    GLib.usleep(1000)
+  }
+  file.delete(null)
+  assert(finished && read.receive === null, 'Native completion was not consumed')
 })
 
 print(`RESOURCE_TESTS_PASS scenarios=${passed}`)

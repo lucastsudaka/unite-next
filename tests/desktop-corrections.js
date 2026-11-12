@@ -197,6 +197,8 @@ export async function runCorrections(owner, settings, win) {
       '@import url("imported.css");\n.window-button .icon { width: 16px; height: 16px; }\n',
       null, false, Gio.FileCreateFlags.PRIVATE, null)
     settings.set_string('window-buttons-theme', id)
+    await until(() => feature.theme.uuid === id && feature.styles.preparations.size === 0,
+      'asynchronous imported theme selection')
     await Scripting.waitLeisure()
     assert(settings.get_string('window-buttons-theme') === id && feature.theme.uuid === id,
       'Newly installed valid selection was rejected by stale discovery')
@@ -214,6 +216,9 @@ export async function runCorrections(owner, settings, win) {
     }
     settings.set_string('window-buttons-theme', 'default')
     settings.set_string('window-buttons-theme', id)
+    await until(() => feature.styles.preparations.size === 0 &&
+      background(controls()._buttons.get('close').get_child()) === directory.get_child(`${variant}/changed-icon.svg`).get_uri(),
+    'asynchronous changed import presentation')
     await Scripting.waitLeisure()
     assert(background(controls()._buttons.get('close').get_child()) === directory.get_child(`${variant}/changed-icon.svg`).get_uri(),
       'Changed imported content or external ancestor/root UUID selectors did not reach the actor')

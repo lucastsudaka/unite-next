@@ -2,8 +2,9 @@
 import Gio from 'gi://Gio'
 import GLib from 'gi://GLib'
 import St from 'gi://St'
-import { scopeStylesheet, ScopedStylesheet, ScopedStylesheetStore } from '../unite-next@lucastsudaka.github.io/scoped-styles.js'
+import { scopeStylesheet, ScopedStylesheet, ScopedStylesheetStore, StylesheetPreparation } from '../unite-next@lucastsudaka.github.io/scoped-styles.js'
 import { assert, throws } from './assert.js'
+import { Styles } from '../unite-next@lucastsudaka.github.io/styles.js'
 
 assert(GLib.getenv('UNITE_PRIVATE_TEST') === '1', 'Scoped CSS tests require private state')
 const scope = 'unite-next-window-controls'
@@ -293,6 +294,211 @@ test('every shipped theme variant scopes and passes the installed native CSS par
     assert(variants > 0, 'No shipped variants were checked')
     print(`SCOPED_SHIPPED_VARIANTS ${variants}`)
   } finally { entries.close(null); store.clear() }
+})
+
+function turnUntil(predicate) {
+  const end = GLib.get_monotonic_time() + 5000000
+  while (!predicate()) {
+    assert(GLib.get_monotonic_time() < end, 'Stylesheet preparation did not complete')
+    GLib.MainContext.default().iteration(false)
+    GLib.usleep(1000)
+  }
+}
+
+function prepare(file) {
+  let done = false
+  let observed
+  const request = new StylesheetPreparation(file.get_path(), scope, (error, records) => {
+    observed = { error, records }; done = true
+  })
+  turnUntil(() => done)
+  assert(!request.receive && !request.read && !request.records && !request.frames.length, 'Preparation retained delivery or input state')
+  if (observed.error) throw observed.error
+  return observed.records
+}
+
+test('asynchronous import preparation is read-only and replacement uses its snapshot without synchronous input reads', () => {
+  const initial = base.get_child('async-initial.css')
+  const selected = base.get_child('async-selected.css')
+  const child = base.get_child('async-import.css')
+  write(initial, '.close { width: 11px; }')
+  write(child, '.icon { background-image: url("icons/close.svg"); height: 19px; }')
+  write(selected, '@import "async-import.css"; .close { width: 23px; }')
+  const owner = new ScopedStylesheet(initial.get_path(), scope)
+  const theme = new St.Theme()
+  owner.load(theme)
+  const previous = owner.file
+  const paths = [...owner.store.files.keys()]
+  const load = Gio.File.prototype.load_contents
+  let presentation = 'old'
+  let records
+  try {
+    Gio.File.prototype.load_contents = () => { throw new Error('Prepared selection used a synchronous input read') }
+    records = prepare(selected)
+    assert(records.size === 2 && JSON.stringify([...owner.store.files.keys()]) === JSON.stringify(paths), 'Read-only preparation changed staging')
+    write(selected, '.invalid { color broken; }')
+    owner.replace(theme, selected.get_path(), scope, records, {
+      apply() { presentation = 'new' }, rollback() { presentation = 'old' }
+    })
+    assert(presentation === 'new' && !owner.file.equal(previous), 'Prepared selection was not applied')
+  } finally { Gio.File.prototype.load_contents = load }
+  try {
+    assert(read(owner.file).includes('width: 23px'), 'Compilation reread a changed input instead of its snapshot')
+    const contents = [...owner.store.files.values()].map(read).join('\n')
+    assert(contents.includes(child.get_parent().resolve_relative_path('icons/close.svg').get_uri()), 'Prepared import lost its original asset base')
+    assert(theme.get_custom_stylesheets().length === 1, 'Replacement retained a previous or duplicate native root')
+    owner.replace(theme, selected.get_path(), scope, records, {
+      apply() {}, rollback() {}
+    })
+    assert(theme.get_custom_stylesheets().length === 1, 'Repeated identical graph duplicated the native root')
+  } finally { owner.unload(theme) }
+})
+
+test('failed native or presentation transitions restore the previous root and keep prior cache ownership', () => {
+  const initial = base.get_child('rollback-initial.css')
+  const selected = base.get_child('rollback-next.css')
+  write(initial, '.close { width: 7px; }')
+  write(selected, '.close { width: 29px; }')
+  const owner = new ScopedStylesheet(initial.get_path(), scope)
+  const theme = new St.Theme()
+  owner.load(theme)
+  const previous = owner.file
+  const retained = [...owner.store.files.keys()]
+  const prepared = prepare(selected)
+  const load = theme.load_stylesheet.bind(theme)
+  const unload = theme.unload_stylesheet.bind(theme)
+  try {
+    for (const boundary of ['load', 'presentation', 'unload']) {
+      const failure = new Error(`Injected transition ${boundary} failure`)
+      let presentation = 'old'
+      let injected = false
+      theme.load_stylesheet = file => {
+        const result = load(file)
+        if (boundary === 'load' && !file.equal(previous)) throw failure
+        return result
+      }
+      theme.unload_stylesheet = file => {
+        unload(file)
+        if (boundary === 'unload' && file.equal(previous) && !injected) { injected = true; throw failure }
+      }
+      const error = throws(() => owner.replace(theme, selected.get_path(), scope, prepared, {
+        apply() { presentation = 'new'; if (boundary === 'presentation') throw failure },
+        rollback() { presentation = 'old' }
+      }), 'Transition failure disappeared')
+      assert(error === failure && presentation === 'old', 'Original failure or previous presentation was lost')
+      assert(owner.file.equal(previous) && theme.get_custom_stylesheets().length === 1 &&
+        theme.get_custom_stylesheets()[0].equal(previous), 'Previous native ownership was not restored')
+      assert(JSON.stringify([...owner.store.files.keys()]) === JSON.stringify(retained), 'Failed transition retained new staging')
+    }
+  } finally { theme.load_stylesheet = load; theme.unload_stylesheet = unload; owner.unload(theme) }
+})
+
+test('prepared invalid, cyclic and unreadable imports fail without staging or owner delivery after cancellation', () => {
+  const file = base.get_child('prepare-invalid.css')
+  for (const text of ['.close { color broken; }', '@import "prepare-invalid.css";', '@import "absent-prepare.css";']) {
+    write(file, text)
+    throws(() => prepare(file), 'Invalid prepared closure succeeded')
+  }
+  write(file, '.close { width: 8px; }')
+  let callbacks = 0
+  const request = new StylesheetPreparation(file.get_path(), scope, () => callbacks++)
+  const input = request.frames[0].file
+  let finished = false
+  const finish = input.load_contents_finish.bind(input)
+  input.load_contents_finish = result => { try { return finish(result) } finally { finished = true } }
+  const read = request.read
+  request.cancel()
+  turnUntil(() => finished)
+  assert(callbacks === 0 && !read.receive && !request.receive && !request.records && !request.frames.length,
+    'Cancelled preparation retained state or reached its disposed owner')
+})
+
+test('native theme copies replace cleanly and reentrant disposal unloads an in-progress candidate without restoring it', () => {
+  const initial = base.get_child('copied-initial.css')
+  const selected = base.get_child('copied-next.css')
+  write(initial, '.close { width: 5px; }')
+  write(selected, '.close { width: 31px; }')
+  const owner = new ScopedStylesheet(initial.get_path(), scope)
+  const original = new St.Theme()
+  const current = new St.Theme()
+  owner.load(original)
+  current.load_stylesheet(owner.file)
+  owner.replace(current, selected.get_path(), scope, prepare(selected), { apply() {}, rollback() {} })
+  assert(original.get_custom_stylesheets().length === 0 && current.get_custom_stylesheets().length === 1,
+    'Replacement retained a copied original root')
+  const previous = owner.file
+  const directory = owner.store.directory
+  const prepared = prepare(initial)
+  const load = current.load_stylesheet.bind(current)
+  let disposed = false
+  current.load_stylesheet = file => {
+    const result = load(file)
+    if (!file.equal(previous)) {
+      owner.unload(current)
+      disposed = true
+      assert(current.get_custom_stylesheets().length === 0, 'Teardown returned with an in-progress candidate loaded')
+    }
+    return result
+  }
+  try {
+    throws(() => owner.replace(current, initial.get_path(), scope, prepared, {
+      apply() { throw new Error('Disposed owner reached presentation') }, rollback() {}
+    }), 'Disposed transition succeeded')
+    assert(disposed && owner.file === null && owner.transition === null && current.get_custom_stylesheets().length === 0 &&
+      original.get_custom_stylesheets().length === 0 && !directory.query_exists(null), 'Disposed transition reacquired a root or staging')
+  } finally { current.load_stylesheet = load; owner.unload(current) }
+})
+
+test('preparation startup failure preserves the original error and removes its pending Styles entry', () => {
+  const owner = new Styles()
+  const failure = new Error('Injected read acquisition failure')
+  const load = Gio.File.prototype.load_contents_async
+  try {
+    Gio.File.prototype.load_contents_async = () => { throw failure }
+    assert(throws(() => owner.prepareScopedShellStyle('controls', style.get_path(), scope, () => {
+      throw new Error('Unacquired read delivered a result')
+    }), 'Read acquisition failure disappeared') === failure, 'Cleanup replaced the original acquisition error')
+    assert(owner.preparations.size === 0 && owner.scopedStore === null, 'Failed read acquisition retained ownership')
+  } finally { Gio.File.prototype.load_contents_async = load; owner.removeAll() }
+})
+
+test('a real native theme copy during replacement is rolled back and all copied roots leave on teardown', () => {
+  const initial = base.get_child('signal-initial.css')
+  const selected = base.get_child('signal-next.css')
+  write(initial, '.close { width: 13px; }')
+  write(selected, '.close { width: 41px; }')
+  for (const currentAware of [false, true]) {
+    const owner = new ScopedStylesheet(initial.get_path(), scope)
+    const original = new St.Theme()
+    let current = original
+    let copied = null
+    let presentation = 'old'
+    owner.load(original)
+    const previous = owner.file
+    const signal = original.connect('custom-stylesheets-changed', () => {
+      if (copied || original.get_custom_stylesheets().length !== 2) return
+      copied = new St.Theme()
+      for (const file of original.get_custom_stylesheets()) copied.load_stylesheet(file)
+      current = copied
+    })
+    try {
+      const prepared = prepare(selected)
+      const transition = {
+        apply() { presentation = 'new' }, rollback() { presentation = 'old' },
+        ...(currentAware ? { currentTheme: () => current } : {})
+      }
+      if (currentAware) {
+        const error = throws(() => owner.replace(original, selected.get_path(), scope, prepared, transition),
+          'Changed native context was silently accepted')
+        assert(error.message.includes('Native theme changed') && presentation === 'old' &&
+          current.get_custom_stylesheets().length === 1 && current.get_custom_stylesheets()[0].equal(previous),
+        'Native context change did not preserve the previous presentation')
+      } else owner.replace(original, selected.get_path(), scope, prepared, transition)
+      owner.unload(current)
+      assert(copied && original.get_custom_stylesheets().length === 0 && copied.get_custom_stylesheets().length === 0 &&
+        owner.roots.size === 0 && owner.store.directory === null, 'A copied predecessor survived teardown')
+    } finally { original.disconnect(signal); owner.unload(current) }
+  }
 })
 
 print(`SCOPED_STYLES_PASS scenarios=${passed}`)

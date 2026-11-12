@@ -37,7 +37,7 @@ const Main = { overview: new Emitter(), panel: { statusArea: {} } }
 const globalFixture = { stage: { key_focus: null }, workspace_manager: { get_active_workspace: () => ({}) } }
 
 class Styles {
-  constructor() { this.entries = new Map(); this.calls = [] }
+  constructor() { this.entries = new Map(); this.calls = []; this.preparations = [] }
   addGtkStyle(name, path) {
     if (this.gtkError) throw this.gtkError
     this.entries.set(name, path)
@@ -48,12 +48,26 @@ class Styles {
     this.entries.set(name, path)
     this.calls.push({ type: 'shell', name, path })
   }
-  addScopedShellStyle(name, path, scope) {
+  addScopedShellStyle(name, path, scope, presentation) {
     if (this.scopeError) throw this.scopeError
+    const previous = this.entries.get(name)
     this.entries.set(name, path)
+    try { presentation?.apply() } catch (error) {
+      this.entries.set(name, previous)
+      presentation?.rollback()
+      throw error
+    }
     this.calls.push({ type: 'scoped', name, path, scope })
   }
-  removeAll() { this.entries.clear() }
+  cancelScopedShellStyle(name) {
+    for (const pending of this.preparations) if (pending.name === name) pending.receive = null
+  }
+  prepareScopedShellStyle(name, path, scope, receive) {
+    this.cancelScopedShellStyle(name)
+    if (this.defer) this.preparations.push({ name, path, scope, receive })
+    else receive(null, new Map())
+  }
+  removeAll() { this.entries.clear(); for (const pending of this.preparations) pending.receive = null }
 }
 const warnings = []
 const Theme = {
@@ -472,12 +486,174 @@ test('selection discovery and scoped style failures remain observable and releas
   equal(state.values['window-buttons-theme'], 'not-rewritten', 'Failed discovery does not rewrite selection')
   const styleFailure = new Error('Injected scoped style acquisition failure')
   owner.styles.scopeError = styleFailure
-  assert(throws(() => owner._onThemeChange(), 'Scoped acquisition failure disappeared') === styleFailure,
-    'Original scoped style failure must propagate')
+  const errors = []
+  owner._reportThemeFailure = (error, request) => {
+    assert(request === owner.themeRequest, 'Wrong request owns the failure')
+    errors.push(error)
+  }
+  owner._onThemeChange()
+  assert(errors.length === 1 && errors[0] === styleFailure, 'Current asynchronous style failure must reach its reporter')
+  assert(owner.theme === previousTheme, 'Failed update must preserve the previous presentation')
   const controls = owner.controls
+  const signals = owner.signals
   owner.destroy()
   assert(controls.destroyed && !owner.controls && !owner.themes, 'Failed owner releases controls and theme references')
-  equal(owner.signals.signals.size, 0, 'External observers released')
+  equal(signals.signals.size, 0, 'External observers released')
+})
+
+test('pending theme changes keep class, variant and icons together and only the latest request can apply', state => {
+  const owner = state.activatePanel()
+  const original = owner.theme
+  const css = owner.styles.entries.get('windowButtons')
+  const icons = owner.controls.params.actionIcons
+  const choices = owner.themes.available.filter(theme => theme.uuid !== original.uuid)
+  owner.styles.defer = true
+  state.settings.set('window-buttons-theme', choices[0].uuid)
+  const obsolete = owner.styles.preparations.at(-1).receive
+  state.settings.set('window-buttons-theme', choices[1].uuid)
+  assert(owner.theme === original && owner.controls.classes.has(original.uuid) &&
+    owner.styles.entries.get('windowButtons') === css && owner.controls.params.actionIcons === icons,
+    'Pending preparation changed active presentation')
+  obsolete(null, new Map())
+  assert(owner.theme === original, 'An obsolete result replaced the active presentation')
+  owner.styles.preparations.at(-1).receive(null, new Map())
+  assert(owner.theme.uuid === choices[1].uuid && !owner.controls.classes.has(original.uuid) &&
+    owner.controls.classes.has(choices[1].uuid), 'Latest theme and class disagree')
+  const darkIcons = owner.controls.params.actionIcons
+  Main.panel.background = { red: 255, green: 255, blue: 255 }
+  Main.panel.emit('style-changed')
+  state.settings.set('icon-scale-workaround', true)
+  assert(owner.appliedDark === true && owner.controls.params.actionIcons === darkIcons,
+    'Rendering-mode change used the pending brightness variant')
+  owner.styles.preparations.at(-1).receive(null, new Map())
+  assert(owner.appliedDark === false && owner.controls.params.actionIcons === owner.theme.getActionIcons(false),
+    'Prepared brightness and icon variant disagree')
+})
+
+test('failed or disposed preparation preserves the valid theme and cannot reach a later activation', state => {
+  const owner = state.activatePanel()
+  const original = owner.theme
+  const css = owner.styles.entries.get('windowButtons')
+  const errors = []
+  owner._reportThemeFailure = error => errors.push(error)
+  owner.styles.defer = true
+  const next = owner.themes.available.find(theme => theme.uuid !== original.uuid)
+  state.settings.set('window-buttons-theme', next.uuid)
+  const failure = new Error('Unreadable prepared theme')
+  owner.styles.preparations.at(-1).receive(failure, null)
+  assert(errors[0] === failure && owner.theme === original && owner.styles.entries.get('windowButtons') === css,
+    'Failed preparation replaced the valid presentation or lost its error')
+  owner._onThemeChange()
+  const pending = owner.styles.preparations.at(-1)
+  const late = pending.receive
+  const controls = owner.controls
+  state.settings.set('show-window-buttons', 'never')
+  assert(pending.receive === null && controls.destroyed, 'Feature removal retained pending delivery or controls')
+  state.settings.set('show-window-buttons', 'always')
+  const current = owner.controls
+  late(null, new Map())
+  assert(current === owner.controls && !current.destroyed && errors.length === 1,
+    'Old activation reached a later owner or reported a stale failure')
+})
+
+test('presentation failure restores class, icons and stylesheet and initial failure still unwinds activation', state => {
+  const owner = state.activatePanel()
+  const original = owner.theme
+  const css = owner.styles.entries.get('windowButtons')
+  const icons = owner.controls.params.actionIcons
+  const next = owner.themes.available.find(theme => theme.uuid !== original.uuid)
+  const failure = new Error('Injected action-icon application failure')
+  const errors = []
+  owner._reportThemeFailure = error => errors.push(error)
+  const set = owner.controls.setControlThemeParams.bind(owner.controls)
+  let injected = false
+  owner.controls.setControlThemeParams = params => {
+    set(params)
+    if (!injected) { injected = true; throw failure }
+  }
+  state.settings.set('window-buttons-theme', next.uuid)
+  assert(errors[0] === failure && owner.theme === original && owner.controls.classes.has(original.uuid) &&
+    !owner.controls.classes.has(next.uuid) && owner.controls.params.actionIcons === icons &&
+    owner.styles.entries.get('windowButtons') === css, 'Failed transition did not restore the complete presentation')
+  state.settings.set('show-window-buttons', 'never')
+  Styles.prototype.scopeError = failure
+  try {
+    assert(throws(() => state.settings.set('show-window-buttons', 'always'), 'Initial acquisition failure disappeared') === failure,
+      'Initial acquisition changed its failure contract')
+    assert(!owner.controls && !owner.theme && !owner.signals, 'Initial failure retained activation resources')
+  } finally { delete Styles.prototype.scopeError }
+})
+
+test('a selection made reentrantly during presentation supersedes the in-progress transition', state => {
+  const owner = state.activatePanel()
+  const original = owner.theme
+  const choices = owner.themes.available.filter(theme => theme.uuid !== original.uuid)
+  owner.styles.defer = true
+  const set = owner.controls.setControlThemeParams.bind(owner.controls)
+  let redirected = false
+  owner.controls.setControlThemeParams = params => {
+    set(params)
+    if (!redirected) { redirected = true; state.settings.set('window-buttons-theme', choices[1].uuid) }
+  }
+  state.settings.set('window-buttons-theme', choices[0].uuid)
+  owner.styles.preparations.at(-1).receive(null, new Map())
+  assert(owner.theme === original && owner.controls.classes.has(original.uuid), 'Superseded synchronous transition was exposed')
+  owner.styles.preparations.at(-1).receive(null, new Map())
+  assert(owner.theme.uuid === choices[1].uuid && owner.controls.classes.has(choices[1].uuid), 'Latest reentrant selection was lost')
+})
+
+test('reentrant brightness invalidates the in-progress theme before committing its stale variant', state => {
+  const owner = state.activatePanel()
+  const original = owner.theme
+  const next = owner.themes.available.find(theme => theme.uuid !== original.uuid)
+  owner.styles.defer = true
+  const set = owner.controls.setControlThemeParams.bind(owner.controls)
+  let changed = false
+  owner.controls.setControlThemeParams = params => {
+    set(params)
+    if (!changed) {
+      changed = true
+      Main.panel.background = { red: 255, green: 255, blue: 255 }
+      Main.panel.emit('style-changed')
+    }
+  }
+  state.settings.set('window-buttons-theme', next.uuid)
+  owner.styles.preparations.at(-1).receive(null, new Map())
+  assert(owner.theme === original && owner.appliedDark === true && owner.isDark === false,
+    'Superseded dark presentation committed while the light request was pending')
+  owner.styles.preparations.at(-1).receive(null, new Map())
+  assert(owner.theme.uuid === next.uuid && owner.appliedDark === false, 'Latest reentrant brightness was not applied')
+})
+
+test('old class, icon, rollback and finalization callbacks cannot mutate a reentrant new activation', state => {
+  const owner = state.activatePanel()
+  for (const boundary of ['remove_style_class_name', 'add_style_class_name', 'setControlThemeParams']) {
+    const choices = owner.themes.available.filter(theme => theme.uuid !== owner.theme.uuid)
+    const requested = choices[0]
+    const replacement = choices[1]
+    const oldStyles = owner.styles
+    const oldControls = owner.controls
+    oldStyles.defer = true
+    const original = oldControls[boundary].bind(oldControls)
+    let restarted = false
+    oldControls[boundary] = (...args) => {
+      const result = original(...args)
+      if (!restarted) {
+        restarted = true
+        state.settings.set('show-window-buttons', 'never')
+        state.settings.set('window-buttons-theme', replacement.uuid)
+        state.settings.set('show-window-buttons', 'always')
+      }
+      return result
+    }
+    state.settings.set('window-buttons-theme', requested.uuid)
+    oldStyles.preparations.at(-1).receive(null, new Map())
+    assert(oldControls.destroyed && owner.controls !== oldControls && owner.styles !== oldStyles,
+      'Reentrant activation did not acquire independent resources at ' + boundary)
+    assert(owner.theme.uuid === replacement.uuid && owner.controls.classes.has(replacement.uuid) &&
+      owner.styles.entries.get('windowButtons') === owner.theme.getStyle(owner.appliedDark) && !owner.applyingTheme,
+      'Old transition changed the new activation presentation at ' + boundary)
+  }
 })
 
 print(passed + ' window-control scenarios passed; ' + failed + ' failed; native compositor acceptance remains separate.')

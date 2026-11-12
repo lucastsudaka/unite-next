@@ -316,7 +316,7 @@ const quotedRoot = `${config}/owner's "theme" \\ extension`
 GLib.mkdir_with_parents(`${quotedRoot}/styles/gtk4/buttons-left`, 0o700)
 const sources = Gio.File.new_for_uri(import.meta.url).get_parent().get_parent()
   .get_child('unite-next@lucastsudaka.github.io')
-for (const name of ['gtk-styles.js', 'convenience.js', 'resources.js', 'gtk-files.js', 'process-jobs.js']) {
+for (const name of ['gtk-styles.js', 'convenience.js', 'resources.js', 'gtk-files.js', 'process-jobs.js', 'file-reads.js']) {
   sources.get_child(name).copy(Gio.File.new_for_path(`${quotedRoot}/${name}`), Gio.FileCopyFlags.NONE, null, null)
 }
 GLib.file_set_contents(`${quotedRoot}/styles/gtk4/buttons-left/maximized.css`, 'button { color: rgb(1, 2, 3); }')

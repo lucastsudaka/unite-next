@@ -1,9 +1,10 @@
 import Gio from 'gi://Gio'
 import GLib from 'gi://GLib'
 import { runCleanup } from './resources.js'
+import { FileRead } from './file-reads.js'
 
 // Callers provide an independently bounded command. GIO reaps it on its worker
-// thread; the only JavaScript completion callback belongs to this removable source.
+// thread. Output reads detach their delivery before synchronous draining.
 export class ProcessJob {
   constructor(argv, input = '', decode = output => output, binary = false) {
     this.decode = decode
@@ -12,6 +13,7 @@ export class ProcessJob {
     this.files = []
     this.source = 0
     this.process = null
+    this.read = this.callback = this.collected = null
     try {
       const paths = ['stdin', 'stdout', 'stderr'].map(name => {
         const file = this.directory.get_child(name)
@@ -34,15 +36,17 @@ export class ProcessJob {
   }
 
   watch(callback) {
-    if (this.source || !this.process) throw new Error('Command completion already consumed or observed')
+    if (this.callback || !this.process) throw new Error('Command completion already consumed or observed')
+    this.callback = callback
     try {
       this.source = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 10, () => {
         if (this.process.get_identifier() !== null) return GLib.SOURCE_CONTINUE
         this.source = 0
-        let output = null
-        let error = null
-        try { output = this.finish() } catch (failure) { error = failure }
-        callback(error, output)
+        try {
+          this.process.wait(null)
+          const file = this.files[this.process.get_successful() ? 1 : 2]
+          this.read = new FileRead(file, this._complete.bind(this))
+        } catch (error) { this._complete(error, null) }
         return GLib.SOURCE_REMOVE
       })
     } catch (error) {
@@ -51,26 +55,45 @@ export class ProcessJob {
     return this
   }
 
+  _complete(error, bytes) {
+    this.read = null
+    this.collected = { error, bytes }
+    const callback = this.callback
+    let output = null
+    try { output = this.finish() } catch (failure) { error = failure }
+    callback(error, output)
+  }
+
   finish() {
     if (this.source) GLib.source_remove(this.source)
     this.source = 0
+    this.callback = null
+    this.read?.cancel()
+    this.read = null
+    const collected = this.collected
+    this.collected = null
     const process = this.process
     if (!process) throw new Error('Command completion already consumed')
     this.process = null
+    const decode = this.decode
+    this.decode = null
     let output = null
     runCleanup([
       () => {
         process.wait(null)
-        const read = (index, fatal = false) => new TextDecoder('utf-8', { fatal }).decode(this.files[index].load_contents(null)[1])
-        if (!process.get_successful()) {
+        if (collected?.error) throw collected.error
+        const successful = process.get_successful()
+        const bytes = collected ? collected.bytes : this.files[successful ? 1 : 2].load_contents(null)[1]
+        if (!successful) {
           const status = process.get_if_exited() ? process.get_exit_status() : `signal ${process.get_term_sig()}`
-          throw new Error(`Command failed (status ${status}): ${read(2).trim() || 'no diagnostic'}`)
+          const diagnostic = new TextDecoder().decode(bytes).trim()
+          throw new Error(`Command failed (status ${status}): ${diagnostic || 'no diagnostic'}`)
         }
-        output = this.binary ? this.files[1].load_contents(null)[1] : read(1, true)
+        output = this.binary ? bytes : new TextDecoder('utf-8', { fatal: true }).decode(bytes)
       },
       () => this._clear()
     ])
-    return this.decode(output)
+    return decode(output)
   }
 
   _clear() {
